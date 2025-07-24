@@ -572,9 +572,7 @@ const Bookings: React.FC = () => {
                         <button
                           onClick={async () => {
                             try {
-                              const response = await axios.post(`${API_BASE_URL}/bookings/delete`, {
-                                id: booking.id,
-                              });
+                              const response = await axios.delete(`${API_BASE_URL}/bookings/delete/${booking.id}`);
                               console.log('Delete success:', response.data);
                               // optionally refresh data here
                             } catch (error) {
