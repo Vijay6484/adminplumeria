@@ -11,6 +11,7 @@ import {
   User,
   Save,
   Loader,
+  Users2Icon,
 } from 'lucide-react';
 
 // User Interface
@@ -81,7 +82,7 @@ const Users: React.FC = () => {
   const handleDelete = async (id: number) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
-        const response = await fetch(`https://adminplumeria-back.onrender.com/admin/users/${id}`, {
+        const response = await fetch(`https://a.plumeriaretreat.com/admin/users/${id}`, {
           method: 'DELETE',
         });
         if (!response.ok) {
@@ -125,7 +126,7 @@ const Users: React.FC = () => {
       setLoading(true);
       setError('');
 
-      const response = await fetch('https://adminplumeria-back.onrender.com/admin/users', {
+      const response = await fetch('https://a.plumeriaretreat.com/admin/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -297,88 +298,88 @@ const Users: React.FC = () => {
         </div>
       )}
 
-      {/* Users Table */}
+      {/* Users Table - Mobile Scrollable */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                User
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Role
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Status
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Last Login
-              </th>
-              <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Actions
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {filteredUsers.map((user) => (
-              <tr key={user.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="flex items-center">
-                    <div className="h-10 w-10 flex-shrink-0">
-                      <img
-                        className="h-10 w-10 rounded-full object-cover"
-                        src={user.avatar}
-                        alt={user.name}
-                        onError={(e) => {
-                          (e.target as HTMLImageElement).src =
-                            'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg';
-                        }}
-                      />
-                    </div>
-                    <div className="ml-4">
-                      <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                      <div className="text-sm text-gray-500">{user.email}</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span
-                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleColor(
-                      user.role
-                    )}`}
-                  >
-                    {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span
-                    className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
-                      user.status
-                    )}`}
-                  >
-                    {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {user.lastLogin ? formatDate(user.lastLogin) : 'Never'}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                  <div className="flex justify-end space-x-2">
-                    <button className="text-blue-600 hover:text-blue-900">
-                      <Edit className="h-5 w-5" />
-                    </button>
-                    <button onClick={() => handleDelete(user.id)} className="text-red-600 hover:text-red-900">
-                      <Trash2 className="h-5 w-5" />
-                    </button>
-                    <button className="text-gray-600 hover:text-gray-900">
-                      <Eye className="h-5 w-5" />
-                    </button>
-                  </div>
-                </td>
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                  User
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                  Role
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                  Last Login
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                  Actions
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredUsers.map((user) => (
+                <tr key={user.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="h-10 w-10 flex-shrink-0">
+                        <img
+                          className="h-10 w-10 rounded-full object-cover"
+                          src={user.avatar}
+                          alt={user.name}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src =
+                              'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg';
+                          }}
+                        />
+                      </div>
+                      <div className="ml-4 min-w-0">
+                        <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                        <div className="text-sm text-gray-500 truncate">{user.email}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleColor(
+                        user.role
+                      )}`}
+                    >
+                      {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
+                        user.status
+                      )}`}
+                    >
+                      {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {user.lastLogin ? formatDate(user.lastLogin) : 'Never'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div className="flex justify-end space-x-2">
+                      
+                      <button onClick={() => handleDelete(user.id)} className="text-red-600 hover:text-red-900">
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                      <button className="text-gray-600 hover:text-gray-900">
+                        <Eye className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Empty State */}
