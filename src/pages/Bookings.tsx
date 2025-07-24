@@ -570,8 +570,18 @@ const Bookings: React.FC = () => {
                     <td className="px-6 py-4 text-sm text-gray-500">
                       <div className="flex space-x-2">
                         <button
-                          onClick={() => handleOpenPaymentModal(booking.id)}
-                          className="text-blue-600 hover:text-blue-900"
+                          onClick={async () => {
+                            try {
+                              const response = await axios.post(`${API_BASE_URL}/bookings/delete`, {
+                                id: booking.id,
+                              });
+                              console.log('Delete success:', response.data);
+                              // optionally refresh data here
+                            } catch (error) {
+                              console.error('Delete failed:', error);
+                            }
+                          }}
+                          className="text-red-600 hover:text-red-900"
                           title="Delete"
                         >
                           <Trash2 className="h-5 w-5" />
