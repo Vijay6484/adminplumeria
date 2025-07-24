@@ -297,7 +297,7 @@ const Bookings: React.FC = () => {
   }
 
   return (
-  <div className="fixed flex flex-col h-full w-full">
+  <div className="flex flex-col h-screen">
     {/* Header */}
     <div className="bg-white shadow-sm z-10">
       <div className="px-4 py-4 sm:px-6 lg:px-8">
@@ -331,7 +331,7 @@ const Bookings: React.FC = () => {
 
     {/* Main Content - Scrollable Area */}
     <div className="flex-1 overflow-y-auto overflow-x-auto">
-      <div className="px-4 py-6 sm:px-6 lg:px-8 min-w-max">
+      <div className="px-4 py-6 sm:px-6 lg:px-8">
         {/* Search and Filter */}
         <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 mb-6">
           <div className="relative flex-1">
@@ -446,7 +446,7 @@ const Bookings: React.FC = () => {
         )}
 
         {/* Bookings Table */}
-        <div className="bg-white shadow rounded-lg overflow-hidden border min-w-full">
+        <div className="bg-white shadow rounded-lg overflow-hidden border">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
