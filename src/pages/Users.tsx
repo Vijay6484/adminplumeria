@@ -299,7 +299,295 @@ const Users: React.FC = () => {
 
       {/* Users Table */}
       <div className="bg-white shadow rounded-lg overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  User
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Role
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Last Login
+                </th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredUsers.map((user) => (
+                <tr key={user.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <div className="h-10 w-10 flex-shrink-0">
+                        <img
+                          className="h-10 w-10 rounded-full object-cover"
+                          src={user.avatar}
+                          alt={user.name}
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src =
+                              'https://images.pexels.com/photos/771742/pexels-photo-771742.jpeg';
+                          }}
+                        />
+                      </div>
+                      <div className="ml-4">
+                        <div className="text-sm font-medium text-gray-900">{user.name}</div>
+                        <div className="text-sm text-gray-500">{user.email}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getRoleColor(
+                        user.role
+                      )}`}
+                    >
+                      {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span
+                      className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusColor(
+                        user.status
+                      )}`}
+                    >
+                      {user.status.charAt(0).toUpperCase() + user.status.slice(1)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {user.lastLogin ? formatDate(user.lastLogin) : 'Never'}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div className="flex justify-end space-x-2">
+                      <button className="text-blue-600 hover:text-blue-900">
+                        <Edit className="h-5 w-5" />
+                      </button>
+                      <button onClick={() => handleDelete(user.id)} className="text-red-600 hover:text-red-900">
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                      <button className="text-gray-600 hover:text-gray-900">
+                        <Eye className="h-5 w-5" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Empty State */}
+      {filteredUsers.length === 0 && (
+        <div className="text-center py-10">
+          <UsersIcon className="mx-auto h-12 w-12 text-gray-400" />
+          <h3 className="mt-2 text-sm font-medium text-gray-900">No users found</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            {searchTerm || filters.role || filters.status
+              ? 'Try adjusting your search or filter criteria.'
+              : 'Get started by creating your first user.'}
+          </p>
+          {!searchTerm && !filters.role && !filters.status && (
+            <div className="mt-6">
+              <button
+                onClick={() => setShowModal(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add User
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Modal for Add User */}
+      {showModal && (
+        <div className="fixed inset-0 overflow-y-auto">
+          <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+              <div className="absolute inset-0 bg-gray-500 opacity-75"></div>
+            </div>
+            <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">
+              &#8203;
+            </span>
+            <div
+              className="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg sm:w-full"
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="modal-headline"
+            >
+              <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                <div className="sm:flex sm:items-start">
+                  <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-blue-100 sm:mx-0 sm:h-10 sm:w-10">
+                    <User className="h-6 w-6 text-blue-600" />
+                  </div>
+                  <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                    <h3 className="text-lg leading-6 font-medium text-gray-900" id="modal-headline">
+                      Add New User
+                    </h3>
+                    <div className="mt-2">
+                      <form onSubmit={handleSubmit} className="space-y-4">
+                        {error && (
+                          <div className="bg-red-50 border-l-4 border-red-500 p-4">
+                            <div className="flex">
+                              <div className="flex-shrink-0">
+                                <User className="h-5 w-5 text-red-500" />
+                              </div>
+                              <div className="ml-3">
+                                <p className="text-sm text-red-700">{error}</p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                        <div>
+                          <label htmlFor="name" className="block text-sm font-medium text-gray-700">
+                            Full Name *
+                          </label>
+                          <div className="mt-1">
+                            <input
+                              type="text"
+                              name="name"
+                              id="name"
+                              required
+                              value={formData.name}
+                              onChange={handleChange}
+                              className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md p-2"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                            Email Address *
+                          </label>
+                          <div className="mt-1">
+                            <input
+                              type="email"
+                              name="email"
+                              id="email"
+                              required
+                              value={formData.email}
+                              onChange={handleChange}
+                              className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md p-2"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label htmlFor="role" className="block text-sm font-medium text-gray-700">
+                            Role *
+                          </label>
+                          <div className="mt-1">
+                            <select
+                              id="role"
+                              name="role"
+                              required
+                              value={formData.role}
+                              onChange={handleChange}
+                              className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md p-2"
+                            >
+                              <option value="admin">Admin</option>
+                              <option value="manager">Manager</option>
+                              <option value="staff">Staff</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div>
+                          <label htmlFor="status" className="block text-sm font-medium text-gray-700">
+                            Status *
+                          </label>
+                          <div className="mt-1">
+                            <select
+                              id="status"
+                              name="status"
+                              required
+                              value={formData.status}
+                              onChange={handleChange}
+                              className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md p-2"
+                            >
+                              <option value="active">Active</option>
+                              <option value="inactive">Inactive</option>
+                              <option value="suspended">Suspended</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div>
+                          <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                            Password *
+                          </label>
+                          <div className="mt-1">
+                            <input
+                              type="password"
+                              name="password"
+                              id="password"
+                              required
+                              value={formData.password}
+                              onChange={handleChange}
+                              className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md p-2"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">
+                            Confirm Password *
+                          </label>
+                          <div className="mt-1">
+                            <input
+                              type="password"
+                              name="confirmPassword"
+                              id="confirmPassword"
+                              required
+                              value={formData.confirmPassword}
+                              onChange={handleChange}
+                              className="shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md p-2"
+                            />
+                          </div>
+                        </div>
+                        <div className="flex justify-end space-x-3">
+                          <button
+                            type="button"
+                            onClick={() => setShowModal(false)}
+                            className="mt-3 w-full inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:mt-0 sm:col-start-1 sm:text-sm"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={loading}
+                            className="mt-3 w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 sm:mt-0 sm:col-start-2 sm:text-sm disabled:opacity-50"
+                          >
+                            {loading ? (
+                              <>
+                                <Loader className="h-4 w-4 mr-2 animate-spin" />
+                                Creating...
+                              </>
+                            ) : (
+                              <>
+                                <Save className="h-4 w-4 mr-2" />
+                                Create User
+                              </>
+                            )}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Users;
           <thead className="bg-gray-50">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">

@@ -144,7 +144,7 @@ const AccommodationForm: React.FC = () => {
         features: data.basicInfo.features || [],
         images: data.basicInfo.images || [],
         available: data.basicInfo.available !== undefined ? data.basicInfo.available : true,
-        ownerId: data.owner?.id,
+        ownerId: data.location?.owner?.id,
         cityId: data.location?.city?.id,
         address: data.location?.address || '',
         latitude: data.location?.coordinates?.latitude || undefined,

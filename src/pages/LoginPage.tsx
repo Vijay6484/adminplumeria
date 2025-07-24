@@ -144,7 +144,7 @@ const LoginPage: React.FC = () => {
             </div>
           </form>
 
-          <div className="mt-6">
+          {/* <div className="mt-6">
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-gray-300" />
@@ -162,7 +162,7 @@ const LoginPage: React.FC = () => {
                 <strong>Example:</strong> admin@resort.com / password123
               </div>
             </div>
-          </div>
+          </div> */}
         </div>
 
         <div className="text-center">

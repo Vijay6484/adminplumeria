@@ -10,6 +10,9 @@ interface ApiBooking {
   guest_name: string;
   guest_email: string;
   guest_phone: string;
+  food_veg: number;
+  food_nonveg: number;
+  food_jain: number;
   accommodation_name: string | null;
   check_in: string;
   check_out: string;
@@ -40,6 +43,9 @@ interface Booking {
   guest: string;
   email: string;
   phone: string;
+  veg: number;
+  nonVeg:number;
+  jainCount: number;
   accommodation: string;
   checkIn: string;
   checkOut: string;
@@ -125,6 +131,9 @@ const Bookings: React.FC = () => {
       guest: apiBooking.guest_name,
       email: apiBooking.guest_email,
       phone: apiBooking.guest_phone,
+      veg: apiBooking.food_veg,
+      nonVeg: apiBooking.food_nonveg,
+      jainCount: apiBooking.food_jain,
       accommodation: apiBooking.accommodation_name || 'Not specified',
       checkIn: new Date(apiBooking.check_in).toLocaleDateString('en-IN'),
       checkOut: new Date(apiBooking.check_out).toLocaleDateString('en-IN'),
@@ -288,7 +297,7 @@ const Bookings: React.FC = () => {
   }
 
   return (
-  <div className="fixed flex flex-col h-full w-full">
+  <div className="flex flex-col h-screen">
     {/* Header */}
     <div className="bg-white shadow-sm z-10">
       <div className="px-4 py-4 sm:px-6 lg:px-8">
@@ -322,7 +331,7 @@ const Bookings: React.FC = () => {
 
     {/* Main Content - Scrollable Area */}
     <div className="flex-1 overflow-y-auto overflow-x-auto">
-      <div className="px-4 py-6 sm:px-6 lg:px-8 min-w-max">
+      <div className="px-4 py-6 sm:px-6 lg:px-8">
         {/* Search and Filter */}
         <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 mb-6">
           <div className="relative flex-1">
@@ -437,7 +446,7 @@ const Bookings: React.FC = () => {
         )}
 
         {/* Bookings Table */}
-        <div className="bg-white shadow rounded-lg overflow-hidden border min-w-full">
+        <div className="bg-white shadow rounded-lg overflow-hidden border">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -447,6 +456,9 @@ const Bookings: React.FC = () => {
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Guest
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Food Preference
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden md:table-cell">
                     Accommodation
@@ -487,6 +499,16 @@ const Bookings: React.FC = () => {
                       <div className="flex flex-col">
                         <span>{booking.guest}</span>
                         <span className="text-xs text-gray-500">{booking.email}</span>
+                        <span className="text-xs text-gray-500">{booking.phone}</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      <div className="flex flex-col">
+                        <span>Adult guests: <span>{booking.adults}</span></span>
+                        <span>Chilldren guests: <span>{booking.children}</span></span>
+                        <span>Veg Count: <span>{booking.veg}</span></span>
+                        <span>Non-Veg Count: <span>{booking.nonVeg}</span></span>
+                        <span>Jain Count: <span>{booking.jainCount}</span></span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500 hidden md:table-cell">
