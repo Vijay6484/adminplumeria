@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
-import { Download, Filter, Search, XCircle, DollarSign, Calendar, CreditCard, User, Plus } from 'lucide-react';
+import { Download, Filter, Search, XCircle, DollarSign, Calendar, CreditCard, User, Plus,Trash2} from 'lucide-react';
 import BookingDetailsModal from '../components/BookingDetailsModal';
 import AddPaymentModal from '../components/AddPaymentModal';
 
@@ -569,6 +569,13 @@ const Bookings: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
                       <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleOpenPaymentModal(booking.id)}
+                          className="text-blue-600 hover:text-blue-900"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-5 w-5" />
+                        </button>
                         <button
                           onClick={() => handleOpenPaymentModal(booking.id)}
                           className="text-blue-600 hover:text-blue-900"
