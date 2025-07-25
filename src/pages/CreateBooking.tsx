@@ -1028,7 +1028,6 @@ const CreateBooking: React.FC = () => {
     const food_nonveg = parseInt(formData.food_nonveg);
     const food_jain = parseInt(formData.food_jain);
     const totalGuests = adults + children;
-    const coupon = formData.coupon_code,
     const totalFood = food_veg + food_nonveg + food_jain;
 
     if (selectedAccommodation) {
@@ -1074,7 +1073,9 @@ const CreateBooking: React.FC = () => {
         food_veg,
         food_nonveg,
         food_jain,
-        coupon,
+        coupon : formData.coupon_code,
+	discount : parseInt(formData.total_amount-formData.discounted_amount),
+	full_amount : formData.total_amount,
         total_amount: parseFloat(formData.discounted_amount || formData.total_amount),
         advance_amount: parseFloat(formData.advance_amount || '0'),
       };
