@@ -385,6 +385,9 @@ const CreateBooking: React.FC = () => {
     accommodationName: string,
     accommodationAddress: string,
     latitude: string,
+	  coupon : string,
+	  discount : float,
+	  full_amount : float,
     longitude: string,
     owner_email: string) => {
     const today: Date = new Date();
@@ -1677,6 +1680,9 @@ const CreateBooking: React.FC = () => {
         bookingPayload.food_veg,
         bookingPayload.food_nonveg,
         bookingPayload.food_jain,
+	      bookingPayload.coupon,
+	      bookingPayload.discount,
+	      bookingPayload.full_amount,
         accommodations.find(acc => acc.id === bookingPayload.accommodation_id)?.name || '',
         accommodations.find(acc => acc.id === bookingPayload.accommodation_id)?.address || '',
         (accommodations.find(acc => acc.id === bookingPayload.accommodation_id)?.latitude || '').toString(),
