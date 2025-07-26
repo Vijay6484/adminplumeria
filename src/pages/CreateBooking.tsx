@@ -386,8 +386,8 @@ const CreateBooking: React.FC = () => {
     accommodationAddress: string,
     latitude: string,
 	  coupon : string,
-	  discount : float,
-	  full_amount : float,
+	  discount : number,
+	  full_amount : number,
     longitude: string,
     owner_email: string) => {
     const today: Date = new Date();
