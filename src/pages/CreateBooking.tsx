@@ -1013,9 +1013,9 @@ const CreateBooking: React.FC = () => {
 
                                             is <span>INR ${advancePayable}</span> as per the details below. Please email us at
 
-                                            <a href="mailto: ${ownerEmail}"
+                                            <a href="mailto: ${owner_email}"
 
-                                              style="color: #216896;">${ownerEmail}</a> if there is any
+                                              style="color: #216896;">${owner_email}</a> if there is any
 
                                             discrepancy in this payment
 
@@ -1362,9 +1362,9 @@ const CreateBooking: React.FC = () => {
 
                                                 <span><b>Email- </b></span><span><a
 
-                                                    href="mailto:${ownerEmail}"
+                                                    href="mailto:${owner_email}"
 
-                                                    style="color: #164e6f;"><b>${ownerEmail}</b></a></span>
+                                                    style="color: #164e6f;"><b>${owner_email}</b></a></span>
 
                                               </div>
 
