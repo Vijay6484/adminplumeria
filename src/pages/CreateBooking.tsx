@@ -1086,12 +1086,12 @@ const CreateBooking: React.FC = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(bookingPayload),
-	      console.log(bookingPayload)
       });
 
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to create booking');
+	console.log(bookingPayload);
       }
 
       const result = await response.json();
