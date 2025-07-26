@@ -1079,7 +1079,7 @@ const CreateBooking: React.FC = () => {
         total_amount: parseFloat(formData.discounted_amount || formData.total_amount),
         advance_amount: parseFloat(formData.advance_amount || '0'),
       };
-
+      console.log(bookingPayload);
       const response = await fetch(`${_BASE_URL}/admin/bookings/offline`, {
         method: 'POST',
         headers: {
@@ -1091,7 +1091,6 @@ const CreateBooking: React.FC = () => {
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to create booking');
-	console.log(bookingPayload);
       }
 
       const result = await response.json();
