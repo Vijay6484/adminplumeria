@@ -1086,6 +1086,7 @@ const CreateBooking: React.FC = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(bookingPayload),
+	      console.log(bookingPayload)
       });
 
       if (!response.ok) {
