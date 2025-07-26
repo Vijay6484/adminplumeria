@@ -1075,7 +1075,7 @@ const CreateBooking: React.FC = () => {
         food_jain,
         coupon : formData.coupon_code,
 	      discount : parseFloat(formData.total_amount || '0') - parseFloat(formData.discounted_amount || '0'),
-	      full_amount : formData.total_amount,
+	      full_amount : parseFloat(formData.total_amount),
         total_amount: parseFloat(formData.discounted_amount || formData.total_amount),
         advance_amount: parseFloat(formData.advance_amount || '0'),
       };
