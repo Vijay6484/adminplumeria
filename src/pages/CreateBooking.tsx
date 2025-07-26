@@ -1680,12 +1680,12 @@ const CreateBooking: React.FC = () => {
         bookingPayload.food_veg,
         bookingPayload.food_nonveg,
         bookingPayload.food_jain,
-	      bookingPayload.coupon,
-	      bookingPayload.discount,
-	      bookingPayload.full_amount,
         accommodations.find(acc => acc.id === bookingPayload.accommodation_id)?.name || '',
         accommodations.find(acc => acc.id === bookingPayload.accommodation_id)?.address || '',
         (accommodations.find(acc => acc.id === bookingPayload.accommodation_id)?.latitude || '').toString(),
+        bookingPayload.coupon,
+	      bookingPayload.discount,
+	      bookingPayload.full_amount,
         (accommodations.find(acc => acc.id === bookingPayload.accommodation_id)?.longitude || '').toString(),
         result.data.owner_email.toString()
       );
