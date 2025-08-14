@@ -1649,7 +1649,7 @@ const CreateBooking: React.FC = () => {
         total_amount: parseFloat(formData.discounted_amount || formData.total_amount),
         advance_amount: parseFloat(formData.advance_amount || '0'),
       };
-      console.log(bookingPayload);
+      console.log("bookingPayload :",bookingPayload);
       const response = await fetch(`${_BASE_URL}/admin/bookings/offline`, {
         method: 'POST',
         headers: {
@@ -1664,6 +1664,7 @@ const CreateBooking: React.FC = () => {
       }
 
       const result = await response.json();
+      console.log("result",result)
       downloadPdf(
         bookingPayload.guest_email,
         bookingPayload.guest_name,
