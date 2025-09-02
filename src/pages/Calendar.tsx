@@ -4,7 +4,7 @@ import { Calendar as CalendarIcon, X, Trash2, Edit2, AlertCircle, CheckCircle, B
 import axios from 'axios';
 
 // API Configuration
-const admin_BASE_URL = 'https://a.plumeriaretreat.com/admin/calendar';
+const admin_BASE_URL = 'https://adminplumeria-back.onrender.com/admin/calendar';
 
 interface Accommodation {
   id: number;
@@ -31,6 +31,7 @@ interface BlockedDate {
   adult_price?: number | null;
   child_price?: number | null;
   updated_at: string;
+  created_at: string;
 }
 
 interface ApiResponse {
@@ -68,6 +69,8 @@ const Calendar = () => {
   const [isProcessingDayClick, setIsProcessingDayClick] = useState(false);
   const [activeSection, setActiveSection] = useState<'price' | 'inventory'>('price');
   const [isBlockAll, setIsBlockAll] = useState(false);
+  const [accommodationRooms, setAccommodationRooms] = useState<number | null>(null);
+  const [blockedRoomForDate, setBlockedRoomForDate] = useState<number | null>(null);
   
   // Track last clicked date to prevent re-processing
   const lastClickedDate = useRef<string | null>(null);
@@ -96,12 +99,99 @@ const Calendar = () => {
     }
   };
 
+  const calculateAvailableRooms = async (
+    accommodationId: number,
+    dateStr: string
+  ): Promise<number | null> => {
+    const accommodation = accommodations.find(a => a.id === accommodationId);
+    if (!accommodation) return null;
+    const totalRooms = Number(accommodation.rooms);
+    console.log("Total rooms for accommodation:", totalRooms);
+    setAccommodationRooms(totalRooms || null);
+    
+    // Parse date strings safely
+    const parseDate = (dateStr: string): Date => {
+      if (!dateStr) return new Date(0);
+      
+      try {
+        const [datePart, timePart] = dateStr.split(", ");
+        const [day, month, year] = datePart.split("/").map(Number);
+        return new Date(`${year}-${month}-${day}T${timePart}`);
+      } catch (error) {
+        console.error("Error parsing date:", dateStr, error);
+        return new Date(0);
+      }
+    };
+    
+    // Filter relevant blocked dates
+    const relevantBlocked = blockedDates.filter(
+      item => 
+        item.accommodation_id === accommodationId && 
+        item.blocked_date === dateStr
+    );
+    
+    // If no blocked dates found
+    if (relevantBlocked.length === 0) {
+      const bookedRooms = await fetchBookedRooms(accommodationId, dateStr);
+      const available = totalRooms - bookedRooms;
+      return Math.max(0, available);
+    }
+    
+    // Find the latest entry by comparing timestamps
+    const latestBlocked = relevantBlocked.reduce((latest, current) => {
+      const currentTime = Math.max(
+        parseDate(current.updated_at).getTime(),
+        parseDate(current.created_at).getTime()
+      );
+      
+      const latestTime = Math.max(
+        parseDate(latest.updated_at).getTime(),
+        parseDate(latest.created_at).getTime()
+      );
+      
+      return currentTime > latestTime ? current : latest;
+    });
+    
+    // Handle the rooms value conversion safely
+    let blockedRoomsValue: number | undefined;
+    
+    // Extract the raw value from the blocked date entry
+    const rawRoomsValue = (latestBlocked as any).rooms;
+    
+    // Handle different types of values
+    if (rawRoomsValue === null || rawRoomsValue === undefined) {
+      blockedRoomsValue = undefined;
+    } else if (typeof rawRoomsValue === 'string') {
+      if (rawRoomsValue === "null" || rawRoomsValue === "") {
+        blockedRoomsValue = undefined;
+      } else {
+        blockedRoomsValue = Number(rawRoomsValue);
+      }
+    } else if (typeof rawRoomsValue === 'number') {
+      blockedRoomsValue = rawRoomsValue;
+    }
+    
+    // If we don't have a valid number for blocked rooms
+    if (blockedRoomsValue === undefined || isNaN(blockedRoomsValue)) {
+      const bookedRooms = await fetchBookedRooms(accommodationId, dateStr);
+      const available = totalRooms - bookedRooms;
+      return Math.max(0, available);
+    }
+    setBlockedRoomForDate(blockedRoomsValue || null);
+    console.log("Blocked rooms for date:", blockedRoomsValue);
+    const bookedRooms = await fetchBookedRooms(accommodationId, dateStr);
+    console.log("booked for a day", bookedRooms);
+    const available = totalRooms + blockedRoomsValue - bookedRooms;
+    return Math.max(0, available);
+  };
+
   const fetchAccommodations = async () => {
     try {
-      const response = await fetch(`https://a.plumeriaretreat.com/admin/properties/accommodations`);
+      const response = await fetch(`https://adminplumeria-back.onrender.com/admin/properties/accommodations`);
       if (!response.ok) throw new Error('Failed to fetch accommodations');
       const data = await response.json();
       if (data.data.length > 0) {
+        console.log('Fetched accommodations:', data.data[0].rooms);
         setAccommodations(data.data);
       }
     } catch (err) {
@@ -113,7 +203,7 @@ const Calendar = () => {
   const fetchBookedRooms = async (accommodationId: number, checkInDate: string) => {
     try {
       setIsFetchingBookedRooms(true);
-      const response = await fetch(`https://a.plumeriaretreat.com/admin/bookings/room-occupancy?check_in=${checkInDate}&id=${accommodationId}`);
+      const response = await fetch(`https://adminplumeria-back.onrender.com/admin/bookings/room-occupancy?check_in=${checkInDate}&id=${accommodationId}`);
       if (!response.ok) {
         throw new Error('Failed to fetch booked rooms');
       }
@@ -152,60 +242,21 @@ const Calendar = () => {
     };
   };
 
-  const calculateAvailableRooms = async (
-    accommodationId: number,
-    dateStr: string
-  ): Promise<number | null> => {
-    const accommodation = accommodations.find(a => a.id === accommodationId);
-    if (!accommodation) return null;
-    const totalRooms = Number(accommodation.rooms);
-    const getLatestBlockedDates = (data: typeof blockedDates) => {
-      const map = new Map<string, any>();
-      data.forEach(item => {
-        const key = `${item.accommodation_id}_${item.blocked_date}`;
-        const existing = map.get(key);
-        if (!existing || new Date(item.updated_at) > new Date(existing.updated_at)) {
-          map.set(key, item);
-        }
-      });
-      return Array.from(map.values());
-    };
-    const latestBlockedDates = getLatestBlockedDates(blockedDates);
-    const blockedForDate = latestBlockedDates.filter(b => {
-      const blockedDateStr =
-        typeof b.blocked_date === "string"
-          ? b.blocked_date.trim().slice(0, 10)
-          : format(new Date(b.blocked_date), "yyyy-MM-dd");
-      return (
-        b.accommodation_id === accommodationId &&
-        blockedDateStr === dateStr &&
-        (editingDate ? b.id !== editingDate.id : true)
-      );
-    });
-    if (blockedForDate.some(b => b.rooms === null)) {
-      return 0;
-    }
-    const blockedRooms = blockedForDate.reduce(
-      (sum, b) => sum + (Number(b.rooms) || 0),
-      0
-    );
-    const bookedRooms = await fetchBookedRooms(accommodationId, dateStr);
-    let available = totalRooms - blockedRooms - bookedRooms;
-    return available > 0 ? available : 0;
-  };
-
   const getRoomStatus = (accommodationId: number, dateStr: string) => {
     const status: { [key: number]: 'available' | 'blocked' } = {};
     const accommodation = accommodations.find(a => a.id === accommodationId);
     if (!accommodation) return status;
+    
     for (let i = 1; i <= accommodation.rooms; i++) {
       status[i] = 'available';
     }
+    
     const blockedForDate = blockedDates.filter(
       b => b.accommodation_id === accommodationId &&
         b.blocked_date === dateStr &&
         (editingDate ? b.id !== editingDate.id : true)
     );
+    
     blockedForDate.forEach(block => {
       if (block.rooms === null) {
         for (let i = 1; i <= accommodation.rooms; i++) {
@@ -215,6 +266,7 @@ const Calendar = () => {
         status[block.rooms] = 'blocked';
       }
     });
+    
     return status;
   };
 
@@ -256,6 +308,7 @@ const Calendar = () => {
     }
     
     setSelectedDay(day);
+    
     try {
       // Find if this date is blocked for the selected accommodation
       const blockedDate = blockedDates.find(b =>
@@ -266,7 +319,8 @@ const Calendar = () => {
       if (blockedDate) {
         setEditingDate(blockedDate);
         setReason(blockedDate.reason || '');
-        setSelectedRoom(blockedDate.rooms || null);
+        setSelectedRoom(0);
+        // setSelectedRoom(blockedDate.rooms || 0);
         setAdultPrice(blockedDate.adult_price || '');
         setChildPrice(blockedDate.child_price || '');
         setIsBlockAll(blockedDate.rooms === null);
@@ -274,6 +328,8 @@ const Calendar = () => {
         
         if (blockedDate.accommodation_id) {
           const available = await calculateAvailableRooms(blockedDate.accommodation_id, dayStr);
+          console.log("Available rooms on day click:", available);
+          setSelectedRoom(available);
           setAvailableRooms(available);
           const status = getRoomStatus(blockedDate.accommodation_id, dayStr);
           setRoomStatus(status);
@@ -348,66 +404,147 @@ const Calendar = () => {
   };
 
   const handleSaveBlockedDates = async () => {
-    if (!validateForm()) return;
-    if (!selectedDay && !editingDate) {
-      setError('Please select a date');
-      return;
-    }
-    try {
-      setLoading(true);
-      const dates = editingDate
-        ? [editingDate.blocked_date]
-        : selectedDay
-        ? [format(selectedDay, 'yyyy-MM-dd')]
-        : [];
-      // For inventory section, if Block All is checked, set selectedRoom to null
-      const roomValue = activeSection === 'inventory' && isBlockAll ? null : selectedRoom;
+  if (!validateForm()) return;
+  if (!selectedDay && !editingDate) {
+    setError('Please select a date');
+    return;
+  }
+  
+  try {
+    setLoading(true);
+    
+    // Determine if we're updating an existing entry or creating a new one
+    let isUpdate = false;
+    let blockedDateId: number | null = null;
+    let dateStr = '';
+    
+    if (editingDate) {
+      // We're editing an existing entry
+      isUpdate = true;
+      blockedDateId = editingDate.id;
+      dateStr = editingDate.blocked_date;
+    } else if (selectedDay) {
+      // Check if there's an existing entry for this accommodation and date
+      dateStr = format(selectedDay, 'yyyy-MM-dd');
+      const existingEntry = blockedDates.find(b => 
+        b.accommodation_id === selectedAccommodationId && 
+        b.blocked_date === dateStr
+      );
       
-      const payload = {
-        dates,
-        reason,
-        accommodation_id: selectedAccommodationId,
-        room_number: roomValue,
-        adult_price: adultPrice,
-        child_price: childPrice
-      };
-      console.log('Payload to save:', payload);
-      const url = editingDate
-        ? `${admin_BASE_URL}/blocked-dates/${editingDate.id}`
-        : `${admin_BASE_URL}/blocked-dates`;
-      const response = await axios({
-        method: editingDate ? 'put' : 'post',
-        url,
-        data: payload,
-        headers: { 'Content-Type': 'application/json' }
-      });
-      const data: ApiResponse = response.data;
-      if (data.success) {
-        setSuccess(editingDate ? 'Updated successfully' : 'Saved successfully');
-        resetForm();
-        await fetchBlockedDates();
-      } else {
-        setError(data.message || 'Failed to save');
+      if (existingEntry) {
+        // Update existing entry
+        isUpdate = true;
+        blockedDateId = existingEntry.id;
+        setEditingDate(existingEntry);
       }
-    } catch (err) {
-      setError('Error connecting to server');
-      console.error('Save error:', err);
-    } finally {
-      setLoading(false);
     }
-  };
+    
+    // Prepare payload based on active section
+    const payload: any = {
+      dates: [dateStr],
+      reason,
+      accommodation_id: selectedAccommodationId,
+    };
+    
+    // Handle price management section
+    if (activeSection === 'price') {
+      // For price section, set the price values
+      payload.adult_price = adultPrice === '' ? null : adultPrice;
+      payload.child_price = childPrice === '' ? null : childPrice;
+      
+      // For price section, keep existing room values if updating
+      if (isUpdate && editingDate) {
+        payload.room_number = editingDate.rooms === null ? null : (editingDate.rooms || 0);
+      } else {
+        // For new entries in price section, don't change room inventory
+        payload.room_number = null;
+      }
+    } 
+    // Handle inventory management section
+    else if (activeSection === 'inventory') {
+      // For inventory section, calculate room value
+      if (isBlockAll) {
+        payload.room_number = null;
+      } else {
+        // Calculate the difference between selected rooms and available rooms
+        const currentSelected = selectedRoom || 0;
+        const currentAvailable = availableRooms || 0;
+        let roomValue = currentSelected - currentAvailable;
+        
+        // Ensure roomValue is not null
+        if (roomValue === null) {
+          roomValue = 0;
+        }
+        
+        console.log("Room value in inventory ", roomValue);
+        
+        // If updating an existing entry, adjust the room value based on existing data
+        if (isUpdate) {
+          const existingBlockedRooms = blockedRoomForDate || 0;
+          console.log("existingBlockedRooms ", existingBlockedRooms);
+          roomValue = existingBlockedRooms + roomValue;
+        }
+        
+        payload.room_number = roomValue;
+      }
+      
+      // For inventory section, keep existing price values if updating
+      if (isUpdate && editingDate) {
+        payload.adult_price = editingDate.adult_price === null ? null : (editingDate.adult_price || 0);
+        payload.child_price = editingDate.child_price === null ? null : (editingDate.child_price || 0);
+      } else {
+        // For new entries in inventory section, use default prices
+        const defaultPrices = getDefaultPrices(selectedAccommodationId);
+        payload.adult_price = defaultPrices.adult;
+        payload.child_price = defaultPrices.child;
+      }
+    }
+    
+    console.log('Payload to save:', payload);
+    
+    const url = isUpdate
+      ? `${admin_BASE_URL}/blocked-dates/${blockedDateId}`
+      : `${admin_BASE_URL}/blocked-dates`;
+      
+    const response = await axios({
+      method: isUpdate ? 'put' : 'post',
+      url,
+      data: payload,
+      headers: { 'Content-Type': 'application/json' }
+    });
+    
+    const data: ApiResponse = response.data;
+    
+    if (data.success) {
+      setSuccess(isUpdate ? 'Updated successfully' : 'Saved successfully');
+      resetForm();
+      await fetchBlockedDates();
+    } else {
+      setError(data.message || 'Failed to save');
+    }
+  } catch (err) {
+    setError('Error connecting to server');
+    console.error('Save error:', err);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleRemoveBlockedDate = async (date: BlockedDate) => {
     if (!confirm(`Are you sure you want to unblock ${format(new Date(date.blocked_date), 'MMMM d, yyyy')}?`)) {
       return;
     }
+    
     try {
       setIsDeleting(true);
       const response = await fetch(`${admin_BASE_URL}/blocked-dates/${date.id}`, {
         method: 'DELETE',
       });
+      
       if (!response.ok) throw new Error('Delete failed');
+      
       const data: ApiResponse = await response.json();
+      
       if (data.success) {
         setSuccess('Date unblocked successfully');
         await fetchBlockedDates();
@@ -444,11 +581,14 @@ const Calendar = () => {
       b.blocked_date === dateStr &&
       b.accommodation_id === selectedAccommodationId
     );
+    
     if (blockedDatesForDay.length === 0) return null;
+    
     const isFullyBlocked = blockedDatesForDay.some(b => b.rooms === null);
     const hasPartialBlocks = blockedDatesForDay.some(b => b.rooms !== null);
     const hasPriceChanges = blockedDatesForDay.some(b => b.adult_price || b.child_price);
     const hasReason = blockedDatesForDay.some(b => b.reason);
+    
     return {
       isFullyBlocked,
       hasPartialBlocks,
@@ -466,10 +606,12 @@ const Calendar = () => {
     startDate.setDate(startDate.getDate() - firstDay.getDay());
     const days = [];
     const current = new Date(startDate);
+    
     for (let i = 0; i < 42; i++) {
       days.push(new Date(current));
       current.setDate(current.getDate() + 1);
     }
+    
     return days;
   };
 
@@ -498,7 +640,7 @@ const Calendar = () => {
         <h1 className="text-3xl font-bold text-gray-900">Manage Calendar</h1>
         <p className="mt-2 text-gray-600">Block dates when properties are unavailable</p>
       </div>
-
+      
       {/* Alerts */}
       {loading && (
         <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
@@ -508,6 +650,7 @@ const Calendar = () => {
           </div>
         </div>
       )}
+      
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-md p-4">
           <div className="flex items-center">
@@ -516,6 +659,7 @@ const Calendar = () => {
           </div>
         </div>
       )}
+      
       {success && (
         <div className="bg-green-50 border border-green-200 rounded-md p-4">
           <div className="flex items-center">
@@ -524,7 +668,7 @@ const Calendar = () => {
           </div>
         </div>
       )}
-
+      
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Calendar */}
         <div className="lg:col-span-2 bg-white rounded-lg shadow-sm border p-6">
@@ -553,7 +697,7 @@ const Calendar = () => {
               </button>
             </div>
           </div>
-
+          
           {/* Calendar Grid */}
           <div className="grid grid-cols-7 gap-1 mb-4">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
@@ -562,12 +706,14 @@ const Calendar = () => {
               </div>
             ))}
           </div>
+          
           <div className="grid grid-cols-7 gap-1">
             {calendarDays.map((day, index) => {
               const isCurrentMonth = day.getMonth() === currentDate.getMonth();
               const isToday = format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
               const blockedStatus = getBlockStatusForDate(day);
               const isSelected = selectedDay && format(selectedDay, 'yyyy-MM-dd') === format(day, 'yyyy-MM-dd');
+              
               let dayClasses = [
                 'p-2',
                 'text-sm',
@@ -578,7 +724,7 @@ const Calendar = () => {
                 loading ? 'cursor-not-allowed' : 'cursor-pointer',
                 isBefore(startOfDay(day), startOfDay(new Date())) ? 'opacity-50' : ''
               ];
-
+              
               if (blockedStatus) {
                 if (blockedStatus.isFullyBlocked) {
                   dayClasses.push(
@@ -612,7 +758,7 @@ const Calendar = () => {
                   'hover:bg-gray-100'
                 );
               }
-
+              
               return (
                 <button
                   key={index}
@@ -629,7 +775,7 @@ const Calendar = () => {
               );
             })}
           </div>
-
+          
           {/* Legend */}
           <div className="flex flex-wrap gap-4 mt-4 text-sm">
             <div className="flex items-center">
@@ -656,7 +802,7 @@ const Calendar = () => {
             </div>
           </div>
         </div>
-
+        
         {/* Form and Blocked Dates List */}
         <div className="space-y-6">
           {/* Form - Always visible after date click */}
@@ -678,7 +824,7 @@ const Calendar = () => {
                     Inventory Management
                   </button>
                 </div>
-
+                
                 {/* Selected Date */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -691,7 +837,7 @@ const Calendar = () => {
                     }
                   </div>
                 </div>
-
+                
                 {/* Accommodation Selection */}
                 <div>
                   <label htmlFor="accommodationSelect" className="block text-sm font-medium text-gray-700 mb-1">
@@ -712,7 +858,7 @@ const Calendar = () => {
                     ))}
                   </select>
                 </div>
-
+                
                 {/* Price Management Section */}
                 {activeSection === 'price' && (
                   <div className="space-y-4 pt-4">
@@ -760,7 +906,7 @@ const Calendar = () => {
                     </div>
                   </div>
                 )}
-
+                
                 {/* Inventory Management Section */}
                 {activeSection === 'inventory' && selectedAccommodationId && (
                   <div className="space-y-4 pt-4">
@@ -770,7 +916,7 @@ const Calendar = () => {
                       </label>
                       
                       {/* Block All Rooms */}
-                      {/* <div className="mb-4">
+                      <div className="mb-4">
                         <label className="flex items-center cursor-pointer">
                           <input
                             type="checkbox"
@@ -783,14 +929,10 @@ const Calendar = () => {
                           />
                           <span className="ml-2 text-sm text-gray-700">Block All Rooms</span>
                         </label>
-                      </div> */}
+                      </div>
                       
                       {!isBlockAll && (
                         <>
-                          <label className="block text-sm font-medium text-gray-700 mb-1">
-                            Rooms to Block
-                          </label>
-                          
                           {/* Room Counter */}
                           <div className="flex items-center">
                             <button
@@ -800,14 +942,16 @@ const Calendar = () => {
                             >
                               −
                             </button>
+                            
                             {/* Room Count */}
                             <div className="py-2 bg-white text-black-700 font-semibold text-xl min-w-[70px] h-12 flex items-center justify-center select-none">
                               {selectedRoom}
                             </div>
+                            
                             {/* Plus Button */}
                             <button
-                              onClick={() => setSelectedRoom(prev => Math.min(availableRooms || 0, (prev || 0) + 1))}
-                              disabled={(selectedRoom || 0) >= (availableRooms || 0)}
+                              onClick={() => setSelectedRoom(prev => Math.min(accommodationRooms || 0, (prev || 0) + 1))}
+                              disabled={(selectedRoom || 0) >= (accommodationRooms || 0)}
                               className="w-10 h-10 flex items-center justify-center rounded-md bg-green-600 text-white text-2xl font-bold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
                             >
                               +
@@ -822,7 +966,7 @@ const Calendar = () => {
                           
                           {availableRooms !== null && availableRooms > 0 && (
                             <div className="mt-2 text-xs text-gray-500">
-                              {availableRooms - (selectedRoom || 0)} rooms available
+                              {availableRooms - (selectedRoom || 0)} rooms will be available after this change
                             </div>
                           )}
                         </>
@@ -830,23 +974,9 @@ const Calendar = () => {
                     </div>
                   </div>
                 )}
-
+                
                 {/* Reason Field */}
-                {/* <div>
-                  <label htmlFor="reason" className="block text-sm font-medium text-gray-700 mb-1">
-                    Reason
-                  </label>
-                  <textarea
-                    id="reason"
-                    rows={3}
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter reason for blocking or price change..."
-                    disabled={loading || isFetchingBookedRooms}
-                  />
-                </div> */}
-
+               
                 {/* Submit Button */}
                 <div className="flex space-x-3">
                   <button
@@ -877,7 +1007,7 @@ const Calendar = () => {
               </div>
             )}
           </div>
-
+          
           {/* Blocked Dates List */}
           <div className="bg-white rounded-lg shadow-sm border p-6">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
@@ -885,6 +1015,7 @@ const Calendar = () => {
                 ? `Blocked Dates for ${currentAccommodation?.name} (${filteredBlockedDates.length})`
                 : 'Blocked Dates'}
             </h3>
+            
             {filteredBlockedDates.length === 0 ? (
               <p className="text-gray-500 text-sm">No dates are currently blocked for this accommodation.</p>
             ) : (
