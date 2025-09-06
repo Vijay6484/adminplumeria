@@ -266,7 +266,7 @@ const CreateBooking: React.FC = () => {
       const bookedCount = booked || 0;
       const blockedCount = blockedRooms || 0;
 
-      const available = totalRooms - bookedCount - blockedCount;
+      const available = totalRooms + blockedCount- bookedCount;
       const availableRoomsValue = Math.max(available, 0);
       setAvailableRooms(availableRoomsValue);
       setShowRoomAvailability(true);
@@ -1650,14 +1650,14 @@ const CreateBooking: React.FC = () => {
         advance_amount: parseFloat(formData.advance_amount || '0'),
       };
       console.log("bookingPayload :",bookingPayload);
-      const response = await fetch(`${_BASE_URL}/admin/bookings/offline`, {
+      const response = await fetch(`https://a.plumeriaretreat.com/admin/bookings/offline`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(bookingPayload),
       });
-
+      console.log("response :",response);
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to create booking');

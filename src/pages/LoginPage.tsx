@@ -11,7 +11,6 @@ const LoginPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-
     if (!email || !password) {
       setError('Please enter both email and password');
       return;
