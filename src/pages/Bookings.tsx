@@ -72,6 +72,7 @@ interface Booking {
   paymentTxnId: string | null;
   createdAt: string;
   rawData?: ApiBooking;
+  timestamp: number; // Added for sorting
 }
 
 interface FilterOptions {
@@ -96,9 +97,7 @@ const Bookings: React.FC = () => {
     null
   );
 
-
-
-  // Added for client-side filtering....
+  // Added for client-side filtering
   const [allBookings, setAllBookings] = useState<Booking[]>([]);
   const [filteredBookings, setFilteredBookings] = useState<Booking[]>([]);
 
@@ -167,6 +166,7 @@ const Bookings: React.FC = () => {
       paymentTxnId: apiBooking.payment_txn_id,
       createdAt: new Date(apiBooking.created_at).toLocaleString("en-IN"),
       rawData: apiBooking,
+      timestamp: new Date(apiBooking.created_at).getTime(), // Add timestamp for sorting
     };
   };
 
@@ -187,15 +187,19 @@ const Bookings: React.FC = () => {
 
       if (response.data.success && Array.isArray(response.data.data)) {
         const mappedBookings = response.data.data.map(mapApiBookingToBooking);
-        setAllBookings(mappedBookings);
-        localStorage.setItem('allBookings', JSON.stringify(mappedBookings));
-        setFilteredBookings(mappedBookings);
-        setBookings(mappedBookings.slice(0, pagination.limit));
+        
+        // Sort by timestamp (newest first)
+        const sortedBookings = mappedBookings.sort((a, b) => b.timestamp - a.timestamp);
+        
+        setAllBookings(sortedBookings);
+        localStorage.setItem('allBookings', JSON.stringify(sortedBookings));
+        setFilteredBookings(sortedBookings);
+        setBookings(sortedBookings.slice(0, pagination.limit));
         setPagination({
-          total: mappedBookings.length,
+          total: sortedBookings.length,
           page: 1,
           limit: pagination.limit,
-          totalPages: Math.ceil(mappedBookings.length / pagination.limit)
+          totalPages: Math.ceil(sortedBookings.length / pagination.limit)
         });
       } else {
         console.warn("Unexpected API response structure", response.data);
@@ -213,24 +217,22 @@ const Bookings: React.FC = () => {
     }
   };
 
-
-
-  // Apply all filters client-side
+  // Apply all filters client-side using localStorage data
   const applyFilters = () => {
     let filtered = [...allBookings];
     
-    // Apply search filter
+    // Apply search filter using localStorage data
     if (searchTerm.trim()) {
       const searchTermLower = searchTerm.toLowerCase();
       filtered = filtered.filter(booking => 
         booking.guest.toLowerCase().includes(searchTermLower) ||
-        booking.accommodation.toLowerCase().includes(searchTermLower)
+        booking.accommodation.toLowerCase().includes(searchTermLower) ||
+        booking.email.toLowerCase().includes(searchTermLower) ||
+        booking.phone.toLowerCase().includes(searchTermLower)
       );
     }
-    
 
-
-    // Apply date filter...!!
+    // Apply date filter
     if (startDate || endDate) {
       const start = startDate ? new Date(startDate) : null;
       const end = endDate ? new Date(endDate) : null;
@@ -245,9 +247,8 @@ const Bookings: React.FC = () => {
         return true;
       });
     }
-    
 
-    // Apply payment status filter..!!
+    // Apply payment status filter
     if (paymentStatusFilter) {
       let statusToFilter: string | null = null;
       switch (paymentStatusFilter) {
@@ -262,7 +263,7 @@ const Bookings: React.FC = () => {
       }
     }
     
-    // Apply booking status filter..!!
+    // Apply booking status filter
     if (bookingStatusFilter) {
       let statusToFilter: string | null = null;
       switch (bookingStatusFilter) {
@@ -288,27 +289,39 @@ const Bookings: React.FC = () => {
     setBookings(filtered.slice(0, pagination.limit));
   };
 
-  // Initial load
+  // Initial load - use localStorage if available
   useEffect(() => {
     const storedBookings = localStorage.getItem('allBookings');
     if (storedBookings) {
-      const parsedBookings = JSON.parse(storedBookings);
-      setAllBookings(parsedBookings);
-      setFilteredBookings(parsedBookings);
-      setBookings(parsedBookings.slice(0, pagination.limit));
-      setPagination({
-        total: parsedBookings.length,
-        page: 1,
-        limit: pagination.limit,
-        totalPages: Math.ceil(parsedBookings.length / pagination.limit)
-      });
-      setLoading(false);
+      try {
+        const parsedBookings = JSON.parse(storedBookings);
+        
+        // Ensure bookings are sorted by timestamp (newest first)
+        const sortedBookings = parsedBookings.sort((a: Booking, b: Booking) => 
+          (b.timestamp || 0) - (a.timestamp || 0)
+        );
+        
+        setAllBookings(sortedBookings);
+        setFilteredBookings(sortedBookings);
+        setBookings(sortedBookings.slice(0, pagination.limit));
+        setPagination({
+          total: sortedBookings.length,
+          page: 1,
+          limit: pagination.limit,
+          totalPages: Math.ceil(sortedBookings.length / pagination.limit)
+        });
+        setLoading(false);
+        
+        // Refresh data in background
+        fetchBookings();
+      } catch (e) {
+        console.error("Error parsing stored bookings:", e);
+        fetchBookings();
+      }
     } else {
       fetchBookings();
     }
   }, []);
-
-
 
   // Apply filters when any filter changes
   useEffect(() => {
@@ -384,8 +397,6 @@ const Bookings: React.FC = () => {
     }
   };
 
-
-  
   // Create a compatible booking object for the modal
   const getModalCompatibleBooking = (booking: Booking) => {
     return {
@@ -468,7 +479,7 @@ const Bookings: React.FC = () => {
               </div>
               <input
                 type="text"
-                placeholder="Search by name or accommodation..."
+                placeholder="Search by name, email, phone or accommodation..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
