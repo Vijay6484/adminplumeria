@@ -266,7 +266,7 @@ const CreateBooking: React.FC = () => {
       const bookedCount = booked || 0;
       const blockedCount = blockedRooms || 0;
 
-      const available = totalRooms + blockedCount- bookedCount;
+      const available = totalRooms - bookedCount - blockedCount;
       const availableRoomsValue = Math.max(available, 0);
       setAvailableRooms(availableRoomsValue);
       setShowRoomAvailability(true);
@@ -388,6 +388,9 @@ const CreateBooking: React.FC = () => {
 	  coupon : string,
 	  discount : number,
 	  full_amount : number,
+    rooms: number,
+    ownerName: string,
+    ownerPhone: string,
     longitude: string,
     owner_email: string) => {
     const today: Date = new Date();
@@ -1013,9 +1016,9 @@ const CreateBooking: React.FC = () => {
 
                                             is <span>INR ${advancePayable}</span> as per the details below. Please email us at
 
-                                            <a href="mailto: ${owner_email}"
+                                            <a href="mailto:booking@plumeriaretreat.com"
 
-                                              style="color: #216896;">${owner_email}</a> if there is any
+                                              style="color: #216896;">booking@plumeriaretreat.com</a> if there is any
 
                                             discrepancy in this payment
 
@@ -1107,7 +1110,7 @@ const CreateBooking: React.FC = () => {
 
                                         <p style="padding-bottom: 5px;margin: 0px;">Mobile: <b>${mobile}</b></p>
 
-                                        <p style="padding-bottom: 5px;margin: 0px;">Check In: <b>${CheckinDate}}</b></p>
+                                        <p style="padding-bottom: 5px;margin: 0px;">Check In: <b>${CheckinDate}</b></p>
 
                                         <p style="padding-bottom: 5px;margin: 0px;">Check Out: <b>${CheckoutDate}</b></p>
 
@@ -1116,6 +1119,8 @@ const CreateBooking: React.FC = () => {
                                         <p style="padding-bottom: 5px;margin: 0px;">Adult: <b>${adult}</b></p>
 
                                         <p style="padding-bottom: 5px;margin: 0px;">Child: <b>${child}</b></p>
+				                               	<p style="padding-bottom: 5px;margin: 0px;">Rooms: <b>${rooms}</b></p>
+
 
                                         <p style="padding-bottom: 5px;margin: 0px;">Veg Count: <b>${vegCount}</b></p>
 
@@ -1138,10 +1143,7 @@ const CreateBooking: React.FC = () => {
                                               <p style="padding-top: 5px;padding-bottom: 10px;margin: 0px;">
 
                                                 <b>TARRIF</b></p>
-						<p style="padding-bottom: 10px;margin: 0px;">Full Amount: <b style="float:right;">${full_amount}</b></p>
-                                              <p style="padding-bottom: 10px;margin: 0px;">Discount: <b style="float:right;">${discount}</b></p>
-                                              <p style="padding-bottom: 10px;margin: 0px;">Coupon: <b style="float:right;">${coupon}</b></p>
-
+					
                                               <p style="padding-bottom: 10px;margin: 0px;">Total Amount: <b
 
                                                   style="float:right;">${totalPrice}</b></p>
@@ -1176,7 +1178,7 @@ const CreateBooking: React.FC = () => {
 
                                         style="color:#000000; font-family:Lato, Arial,sans-serif; font-size:15px; line-height:22px; padding-bottom:24px;">
 
-                                        <div mc:edit="text_3"><b>Booking Cancellation Policy:</b> From ${CheckinDate},100%
+                                        <div mc:edit="text_3"><b>Booking Cancellation Policy:</b> From ${BookingDate},100%
 
                                           penalty will be
 
@@ -1364,7 +1366,7 @@ const CreateBooking: React.FC = () => {
 
                                                     href="mailto:${owner_email}"
 
-                                                    style="color: #164e6f;"><b>${owner_email}</b></a></span>
+                                                    style="color: #164e6f;"><b>booking@plumeriaretreat.com</b></a></span>
 
                                               </div>
 
@@ -1382,7 +1384,7 @@ const CreateBooking: React.FC = () => {
 
                                                 <span><b>Contact Number- </b></span>
 
-                                                <span>Babu</span>- <span>9923366051</span>
+                                                <span>${ownerName || ''}</span>- <span>${ownerPhone || ''}</span>
 
                                               </div>
 
@@ -1422,9 +1424,9 @@ const CreateBooking: React.FC = () => {
 
                                           communication related to your booking from Plumeria Retreat Pawna lake AC
 
-                                          cottage , please add <a href="mailto:babukale60@gmail.com "
+                                          cottage , please add <a href="mailto:booking@plumeriaretreat.com"
 
-                                            style="color: #164e6f;"><b>babukale60@gmail.com </b></a> to your contact list
+                                            style="color: #164e6f;"><b>booking@plumeriaretreat.com </b></a> to your contact list
 
                                           and
 
@@ -1665,31 +1667,37 @@ const CreateBooking: React.FC = () => {
 
       const result = await response.json();
       console.log("result",result)
-      downloadPdf(
-        bookingPayload.guest_email,
-        bookingPayload.guest_name,
-        result.data.booking.id.toString(),
-        bookingPayload.check_in,
-        bookingPayload.check_out,
-        bookingPayload.total_amount,
-        bookingPayload.advance_amount,
-        (bookingPayload.total_amount - bookingPayload.advance_amount),
-        bookingPayload.guest_phone || '',
-        bookingPayload.rooms,
-        bookingPayload.adults,
-        bookingPayload.children,
-        bookingPayload.food_veg,
-        bookingPayload.food_nonveg,
-        bookingPayload.food_jain,
-        accommodations.find(acc => acc.id === bookingPayload.accommodation_id)?.name || '',
-        accommodations.find(acc => acc.id === bookingPayload.accommodation_id)?.address || '',
-        (accommodations.find(acc => acc.id === bookingPayload.accommodation_id)?.latitude || '').toString(),
-        bookingPayload.coupon,
-	      bookingPayload.discount,
-	      bookingPayload.full_amount,
-        (accommodations.find(acc => acc.id === bookingPayload.accommodation_id)?.longitude || '').toString(),
-        result.data.owner_email.toString()
-      );
+      const totalPerson = bookingPayload.adults + bookingPayload.children;
+
+downloadPdf(
+  bookingPayload.guest_email,
+  bookingPayload.guest_name,
+  result.data.booking.id.toString(),
+  bookingPayload.check_in,
+  bookingPayload.check_out,
+  bookingPayload.total_amount,
+  bookingPayload.advance_amount,
+  (bookingPayload.total_amount - bookingPayload.advance_amount),
+  bookingPayload.guest_phone || '',
+  totalPerson,   // 👈 correct position
+  bookingPayload.adults,
+  bookingPayload.children,
+  bookingPayload.food_veg,
+  bookingPayload.food_nonveg,
+  bookingPayload.food_jain,
+  accommodations.find(acc => acc.id === bookingPayload.accommodation_id)?.name || '',
+  accommodations.find(acc => acc.id === bookingPayload.accommodation_id)?.address || '',
+  (accommodations.find(acc => acc.id === bookingPayload.accommodation_id)?.latitude || '').toString(),
+  bookingPayload.coupon,
+  bookingPayload.discount,
+  bookingPayload.full_amount,
+  bookingPayload.rooms,   // 👈 now rooms at correct place
+  result.data.owner_name || '',   // 👈 if available
+  result.data.owner_phone || '',  // 👈 if available
+  (accommodations.find(acc => acc.id === bookingPayload.accommodation_id)?.longitude || '').toString(),
+  result.data.owner_email.toString()
+);
+
       alert('Booking created successfully!');
       navigate('/bookings');
 
