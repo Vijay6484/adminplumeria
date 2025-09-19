@@ -418,7 +418,10 @@ const handleDelete = async (id: number) => {
 
                 {accommodation.package.description && (
                   <div className="mt-2 text-sm text-gray-600">
-                    <span className="font-medium">Package:</span> {accommodation.package.description}
+                    {/* <span className="font-medium">Package:</span> {accommodation.package.description} */}
+                    <div dangerouslySetInnerHTML={{ __html:accommodation.package.description }} />
+
+
                   </div>
                 )}
 

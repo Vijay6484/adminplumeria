@@ -4,6 +4,9 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { ArrowLeft, Building2, Plus, X, Save, Trash2, Loader2, MapPin, Users, Package } from 'lucide-react';
+import ReactQuill from 'react-quill';
+import 'react-quill/dist/quill.snow.css';
+
 
 const admin_BASE_URL = 'https://a.plumeriaretreat.com';
 
@@ -887,23 +890,30 @@ const AccommodationForm: React.FC = () => {
               </div>
 
               <div className="sm:col-span-6">
-                <label htmlFor="packageDescription" className="block text-sm font-medium text-gray-700">
-                  Package Description
-                </label>
-                <div className="mt-1">
-                  <textarea
-                    id="packageDescription"
-                    name="packageDescription"
-                    rows={3}
-                    value={formData.packageDescription}
-                    onChange={handleChange}
-                    className={`shadow-sm focus:ring-blue-500 focus:border-blue-500 block w-full sm:text-sm border-gray-300 rounded-md ${errors.packageDescription ? 'border-red-300' : 'border-gray-300'
-                      }`}
-                    placeholder="Describe what's included in this package"
-                  />
-                  {errors.packageDescription && <p className="mt-1 text-sm text-red-600">{errors.packageDescription}</p>}
-                </div>
-              </div>
+  <label htmlFor="packageDescription" className="block text-sm font-medium text-gray-700">
+    Package Description
+  </label>
+  <div className="mt-1">
+    <ReactQuill
+      theme="snow"
+      value={formData.packageDescription || ''}
+      onChange={(content) => {
+        setFormData({
+          ...formData,
+          packageDescription: content,
+        });
+        if (errors.packageDescription) {
+          setErrors({ ...errors, packageDescription: '' });
+        }
+      }}
+      className="bg-white rounded-md"
+      placeholder="Describe what's included in this package"
+    />
+    {errors.packageDescription && (
+      <p className="mt-1 text-sm text-red-600">{errors.packageDescription}</p>
+    )}
+  </div>
+</div>
 
               <div className="sm:col-span-3">
                 <label htmlFor="adultPrice" className="block text-sm font-medium text-gray-700">
