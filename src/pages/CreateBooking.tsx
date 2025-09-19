@@ -1692,8 +1692,8 @@ downloadPdf(
   bookingPayload.discount,
   bookingPayload.full_amount,
   bookingPayload.rooms,   // 👈 now rooms at correct place
-  result.data.owner_name || '',   // 👈 if available
-  result.data.owner_phone || '',  // 👈 if available
+  result.data.owner_name.toString() || '',   // 👈 if available
+  result.data.owner_phone.toString() || '',  // 👈 if available
   (accommodations.find(acc => acc.id === bookingPayload.accommodation_id)?.longitude || '').toString(),
   result.data.owner_email.toString()
 );
