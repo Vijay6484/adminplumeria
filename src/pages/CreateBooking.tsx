@@ -1016,7 +1016,7 @@ const CreateBooking: React.FC = () => {
 
                                             is <span>INR ${advancePayable}</span> as per the details below. Please email us at
 
-                                            <a href="mailto:booking@plumeriaretreat.com"
+                                            <a href="mailto: ${owner_email}"
 
                                               style="color: #216896;">booking@plumeriaretreat.com</a> if there is any
 
@@ -1119,7 +1119,7 @@ const CreateBooking: React.FC = () => {
                                         <p style="padding-bottom: 5px;margin: 0px;">Adult: <b>${adult}</b></p>
 
                                         <p style="padding-bottom: 5px;margin: 0px;">Child: <b>${child}</b></p>
-				                               	<p style="padding-bottom: 5px;margin: 0px;">Rooms: <b>${rooms}</b></p>
+					<p style="padding-bottom: 5px;margin: 0px;">Rooms: <b>${rooms}</b></p>
 
 
                                         <p style="padding-bottom: 5px;margin: 0px;">Veg Count: <b>${vegCount}</b></p>
@@ -1143,7 +1143,10 @@ const CreateBooking: React.FC = () => {
                                               <p style="padding-top: 5px;padding-bottom: 10px;margin: 0px;">
 
                                                 <b>TARRIF</b></p>
-					
+						<p style="padding-bottom: 10px;margin: 0px;">Full Amount: <b style="float:right;">${full_amount}</b></p>
+                                              <p style="padding-bottom: 10px;margin: 0px;">Discount: <b style="float:right;">${discount}</b></p>
+                                              <p style="padding-bottom: 10px;margin: 0px;">Coupon: <b style="float:right;">${coupon}</b></p>
+
                                               <p style="padding-bottom: 10px;margin: 0px;">Total Amount: <b
 
                                                   style="float:right;">${totalPrice}</b></p>
@@ -1178,7 +1181,7 @@ const CreateBooking: React.FC = () => {
 
                                         style="color:#000000; font-family:Lato, Arial,sans-serif; font-size:15px; line-height:22px; padding-bottom:24px;">
 
-                                        <div mc:edit="text_3"><b>Booking Cancellation Policy:</b> From ${BookingDate},100%
+                                        <div mc:edit="text_3"><b>Booking Cancellation Policy:</b> From ${CheckinDate},100%
 
                                           penalty will be
 
@@ -1384,7 +1387,7 @@ const CreateBooking: React.FC = () => {
 
                                                 <span><b>Contact Number- </b></span>
 
-                                                <span>${ownerName || ''}</span>- <span>${ownerPhone || ''}</span>
+                                                <span>Babu</span>- <span>9923366051</span>
 
                                               </div>
 
@@ -1424,9 +1427,9 @@ const CreateBooking: React.FC = () => {
 
                                           communication related to your booking from Plumeria Retreat Pawna lake AC
 
-                                          cottage , please add <a href="mailto:booking@plumeriaretreat.com"
+                                          cottage , please add <a href="mailto:babukale60@gmail.com "
 
-                                            style="color: #164e6f;"><b>booking@plumeriaretreat.com </b></a> to your contact list
+                                            style="color: #164e6f;"><b>babukale60@gmail.com </b></a> to your contact list
 
                                           and
 
