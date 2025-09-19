@@ -1181,7 +1181,7 @@ const CreateBooking: React.FC = () => {
 
                                         style="color:#000000; font-family:Lato, Arial,sans-serif; font-size:15px; line-height:22px; padding-bottom:24px;">
 
-                                        <div mc:edit="text_3"><b>Booking Cancellation Policy:</b> From ${CheckinDate},100%
+                                        <div mc:edit="text_3"><b>Booking Cancellation Policy:</b> From ${BookingId},100%
 
                                           penalty will be
 
@@ -1387,7 +1387,7 @@ const CreateBooking: React.FC = () => {
 
                                                 <span><b>Contact Number- </b></span>
 
-                                                <span>Babu</span>- <span>9923366051</span>
+                                                <span>${ownerName}</span>- <span>${ownerPhone}</span>
 
                                               </div>
 
@@ -1427,9 +1427,9 @@ const CreateBooking: React.FC = () => {
 
                                           communication related to your booking from Plumeria Retreat Pawna lake AC
 
-                                          cottage , please add <a href="mailto:babukale60@gmail.com "
+                                          cottage , please add <a href="mailto:booking@plumeriaretreat.com "
 
-                                            style="color: #164e6f;"><b>babukale60@gmail.com </b></a> to your contact list
+                                            style="color: #164e6f;"><b>booking@plumeriaretreat.com </b></a> to your contact list
 
                                           and
 
