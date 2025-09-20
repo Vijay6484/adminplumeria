@@ -1181,7 +1181,7 @@ const CreateBooking: React.FC = () => {
 
                                         style="color:#000000; font-family:Lato, Arial,sans-serif; font-size:15px; line-height:22px; padding-bottom:24px;">
 
-                                        <div mc:edit="text_3"><b>Booking Cancellation Policy:</b> From ${BookingId},100%
+                                        <div mc:edit="text_3"><b>Booking Cancellation Policy:</b> From ${BookingDate},100%
 
                                           penalty will be
 
