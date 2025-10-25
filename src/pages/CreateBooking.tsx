@@ -17,6 +17,9 @@ interface Accommodation {
   adultPrice?: number;
   childPrice?: number;
   capacity: number;
+  type?: string;
+  MaxPersonVilla?: number;
+  RatePerPerson?: number;
 }
 
 interface Coupon {
@@ -38,6 +41,23 @@ interface BlockedDate {
 }
 
 const _BASE_URL = 'https://a.plumeriaretreat.com';
+
+// Helper function to calculate the number of nights
+const calculateNumberOfDays = (checkIn: string, checkOut: string): number => {
+  if (!checkIn || !checkOut) return 0;
+  
+  const startDate = new Date(checkIn);
+  const endDate = new Date(checkOut);
+
+  // Don't calculate if dates are invalid
+  if (endDate <= startDate) return 0;
+
+  const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+  
+  // This is the number of nights
+  return diffDays;
+};
 
 const CreateBooking: React.FC = () => {
   const navigate = useNavigate();
@@ -62,6 +82,7 @@ const CreateBooking: React.FC = () => {
     check_out: '',
     adults: '1',
     children: '0',
+    extra_adults: '0', // Added field for extra adults
     rooms: '1',
     food_veg: '0',
     food_nonveg: '0',
@@ -187,13 +208,23 @@ const CreateBooking: React.FC = () => {
         longitude: data.location?.coordinates?.longitude || 0,
         adultPrice: data.packages?.pricing?.adult || 0,
         childPrice: data.packages?.pricing?.child || 0,
-        capacity: data.basicInfo?.capacity || 4
+        capacity: data.basicInfo?.capacity || 4,
+        type: data.basicInfo?.type || undefined, // Fetch accommodation type
+        MaxPersonVilla: data.packages?.pricing?.MaxPersonVilla || undefined, // Fetch villa details
+        RatePerPerson: data.packages?.pricing?.RatePerPerson || undefined // Fetch villa details
       };
       setSelectedAccommodation(accommodation);
       setAvailableRooms(0);
       setShowRoomAvailability(false);
       setAppliedCoupon(null);
-      setFormData(prev => ({ ...prev, coupon_code: '' }));
+      // Reset conditional fields when accommodation changes
+      setFormData(prev => ({
+        ...prev,
+        coupon_code: '',
+        children: accommodation.type === 'Villa' ? '0' : prev.children,
+        extra_adults: accommodation.type !== 'Villa' ? '0' : prev.extra_adults,
+        rooms: '1' // Always reset rooms to 1
+      }));
     } catch (error) {
       console.error('Error fetching accommodation details:', error);
     }
@@ -270,12 +301,15 @@ const CreateBooking: React.FC = () => {
       const availableRoomsValue = Math.max(available, 0);
       setAvailableRooms(availableRoomsValue);
       setShowRoomAvailability(true);
-
-      if (parseInt(formData.rooms) > availableRoomsValue) {
-        setFormData(prev => ({
-          ...prev,
-          rooms: availableRoomsValue > 0 ? availableRoomsValue.toString() : '0'
-        }));
+      
+      // Only adjust room count if it's not a villa
+      if (selectedAccommodation.type !== 'Villa') {
+        if (parseInt(formData.rooms) > availableRoomsValue) {
+          setFormData(prev => ({
+            ...prev,
+            rooms: availableRoomsValue > 0 ? availableRoomsValue.toString() : '0'
+          }));
+        }
       }
     };
 
@@ -336,6 +370,7 @@ const CreateBooking: React.FC = () => {
     return Math.max(0, discountedAmount);
   };
 
+  // ---*** UPDATED PRICE CALCULATION LOGIC ***---
   useEffect(() => {
     if (!selectedAccommodation) {
       setFormData(prev => ({
@@ -348,9 +383,45 @@ const CreateBooking: React.FC = () => {
 
     const adults = parseInt(formData.adults) || 0;
     const children = parseInt(formData.children) || 0;
-    const adultPrice = (selectedAccommodation.adultPrice || 0) * adults;
-    const childPrice = (selectedAccommodation.childPrice || 0) * children;
-    const baseTotal = adultPrice + childPrice;
+    const extra_adults = parseInt(formData.extra_adults) || 0;
+    const rooms = parseInt(formData.rooms) || 1; // Get number of rooms
+    
+    // Calculate number of days (or nights)
+    const numberOfDays = calculateNumberOfDays(formData.check_in, formData.check_out);
+
+    if (numberOfDays === 0) {
+        // If dates are not set or are invalid, set price to 0
+        setFormData(prev => ({
+        ...prev,
+        total_amount: '0.00',
+        discounted_amount: '0.00'
+      }));
+      return;
+    }
+
+    let baseTotal = 0;
+
+    // Handle different pricing logic for villas
+    if (selectedAccommodation.type === 'Villa') {
+      // --- CORRECTED VILLA LOGIC ---
+      // Logic: (Base Villa Price Per Day + (Extra Person Rate * Extra Adults)) * Number of Days
+      // Assumes 'adultPrice' is the base per-day charge for the villa.
+      const baseVillaRatePerDay = selectedAccommodation.adultPrice || 0; 
+      const extraPersonChargePerDay = (selectedAccommodation.RatePerPerson || 0) * extra_adults;
+      const totalPerDayPerVilla = baseVillaRatePerDay + extraPersonChargePerDay;
+      
+      // rooms is 1 for Villa, but multiplying is fine.
+      baseTotal = totalPerDayPerVilla * rooms * numberOfDays; 
+
+    } else {
+      // Regular logic: ((Adult price * adults) + (Child price * children)) * days
+      // This assumes price is per person per day.
+      const adultPricePerDay = (selectedAccommodation.adultPrice || 0) * adults;
+      const childPricePerDay = (selectedAccommodation.childPrice || 0) * children;
+      const totalPerDay = adultPricePerDay + childPricePerDay;
+      
+      baseTotal = totalPerDay * numberOfDays;
+    }
 
     const discountedTotal = calculateDiscount(baseTotal, appliedCoupon);
 
@@ -363,9 +434,13 @@ const CreateBooking: React.FC = () => {
     selectedAccommodation,
     formData.adults,
     formData.children,
+    formData.extra_adults,
     formData.rooms,
+    formData.check_in,  
+    formData.check_out, 
     appliedCoupon
   ]);
+  
   const downloadPdf = (
     email: string,
     name: string,
@@ -379,6 +454,7 @@ const CreateBooking: React.FC = () => {
     totalPerson: number,
     adult: number,
     child: number,
+    extra_adults: number, // Added param
     vegCount: number,
     nonvegCount: number,
     joinCount: number,
@@ -398,6 +474,23 @@ const CreateBooking: React.FC = () => {
     const day: string = String(today.getDate()).padStart(2, '0');
     const month: string = String(today.getMonth() + 1).padStart(2, '0'); // Months are 0-indexed
     const year: number = today.getFullYear();
+
+    // Conditionally create the child/extra adult HTML
+    const guestDetailHtml = selectedAccommodation?.type === 'Villa'
+      ? `<p style="padding-bottom: 5px;margin: 0px;">Extra Adults: <b>${extra_adults}</b></p>`
+      : `<p style="padding-bottom: 5px;margin: 0px;">Child: <b>${child}</b></p>`;
+
+    // Conditionally create food count HTML
+    const foodDetailHtml = selectedAccommodation?.type !== 'Villa'
+    ? `<p style="padding-bottom: 5px;margin: 0px;">Veg Count: <b>${vegCount}</b></p>
+       <p style="padding-bottom: 5px;margin: 0px;">Non Veg Count: <b>${nonvegCount}</b></p>
+       <p style="padding-bottom: 5px;margin: 0px;">Jain Count: <b>${joinCount}</b></p>`
+    : '';
+
+    // Conditionally create rooms HTML (only show if not a villa)
+    const roomDetailHtml = selectedAccommodation?.type !== 'Villa'
+    ? `<p style="padding-bottom: 5px;margin: 0px;">Rooms: <b>${rooms}</b></p>`
+    : '';
 
     const BookingDate: string = `${year}-${month}-${day}`;
     const html = `<!DOCTYPE html
@@ -790,7 +883,7 @@ const CreateBooking: React.FC = () => {
 
                     <td bgcolor="#f4f4f4" height="auto" class="border"
 
-                      style="font-size:0pt; line-height:0pt; text-align:center; width:100%; min-width:100%;">&nbsp;</td>
+                      style="font-size:0pt; line-height:0pt; text-align:center; width:100%; min-width:100%;"> </td>
 
                   </tr>
 
@@ -890,7 +983,7 @@ const CreateBooking: React.FC = () => {
 
                     <td bgcolor="#f4f4f4" height="auto" class="border"
 
-                      style="font-size:0pt; line-height:0pt; text-align:center; width:100%; min-width:100%;">&nbsp;</td>
+                      style="font-size:0pt; line-height:0pt; text-align:center; width:100%; min-width:100%;"> </td>
 
                   </tr>
 
@@ -924,7 +1017,7 @@ const CreateBooking: React.FC = () => {
 
                     <td bgcolor="#f4f4f4" height="150" class="border"
 
-                      style="font-size:0pt; line-height:0pt; text-align:center; width:100%; min-width:100%;">&nbsp;</td>
+                      style="font-size:0pt; line-height:0pt; text-align:center; width:100%; min-width:100%;"> </td>
 
                   </tr>
 
@@ -1117,18 +1210,11 @@ const CreateBooking: React.FC = () => {
                                         <p style="padding-bottom: 5px;margin: 0px;">Total Person: <b>${totalPerson}</b></p>
 
                                         <p style="padding-bottom: 5px;margin: 0px;">Adult: <b>${adult}</b></p>
+                                        
+                                        ${guestDetailHtml} 
+                                        ${roomDetailHtml}
 
-                                        <p style="padding-bottom: 5px;margin: 0px;">Child: <b>${child}</b></p>
-					<p style="padding-bottom: 5px;margin: 0px;">Rooms: <b>${rooms}</b></p>
-
-
-                                        <p style="padding-bottom: 5px;margin: 0px;">Veg Count: <b>${vegCount}</b></p>
-
-                                        <p style="padding-bottom: 5px;margin: 0px;">Non Veg Count: <b>${nonvegCount}</b></p>
-
-                                        <p style="padding-bottom: 5px;margin: 0px;">Jain Count: <b>${joinCount}</b></p>
-
-                                      </td>
+                                        ${foodDetailHtml} </td>
 
                                       <td
 
@@ -1321,16 +1407,6 @@ const CreateBooking: React.FC = () => {
 
                                           </tr>
 
-                                          <!--<tr>
-
-																										<td class="pb25" style="color:#000000; font-family:Lato, Arial,sans-serif; font-size:15px; line-height:22px;">
-
-																											<div mc:edit="text_3"><span>Maharashtra</span>, <span>India</span></div>
-
-																										</td>
-
-																									</tr>-->
-
                                           <tr>
 
                                             <td class="pb25"
@@ -1507,7 +1583,7 @@ const CreateBooking: React.FC = () => {
 
                     <td bgcolor="#f4f4f4" height="150" class="border"
 
-                      style="font-size:0pt; line-height:0pt; text-align:left; width:100%; min-width:100%;">&nbsp;</td>
+                      style="font-size:0pt; line-height:0pt; text-align:left; width:100%; min-width:100%;"> </td>
 
                   </tr>
 
@@ -1590,19 +1666,21 @@ const CreateBooking: React.FC = () => {
       alert('Please fill in all required fields');
       return;
     }
-
+    
+    // This check is valid for villas too (a villa is 1 room, if availableRooms is 0, it's booked)
     if (availableRooms === 0) {
       alert('This accommodation is fully booked for the selected date. Please choose another date or accommodation.');
       return;
     }
 
     const adults = parseInt(formData.adults);
-    const children = parseInt(formData.children);
+    const children = parseInt(formData.children) || 0; // Default to 0
+    const extra_adults = parseInt(formData.extra_adults) || 0; // Default to 0
     const rooms = parseInt(formData.rooms);
     const food_veg = parseInt(formData.food_veg);
     const food_nonveg = parseInt(formData.food_nonveg);
     const food_jain = parseInt(formData.food_jain);
-    const totalGuests = adults + children;
+    const totalGuests = adults + children + extra_adults; // Updated total
     const totalFood = food_veg + food_nonveg + food_jain;
 
     if (selectedAccommodation) {
@@ -1613,9 +1691,12 @@ const CreateBooking: React.FC = () => {
       }
     }
 
-    if (totalFood !== totalGuests) {
-      alert('Food preferences must match total guests count');
-      return;
+    // Only validate food count if the accommodation type is NOT 'villa'
+    if (selectedAccommodation?.type !== 'Villa') {
+      if (totalFood !== totalGuests) {
+        alert('Food preferences must match total guests count');
+        return;
+      }
     }
 
     if (new Date(formData.check_in) >= new Date(formData.check_out)) {
@@ -1628,7 +1709,8 @@ const CreateBooking: React.FC = () => {
       return;
     }
 
-    if (rooms > availableRooms) {
+    // Only check rooms > availableRooms if NOT a villa
+    if (selectedAccommodation?.type !== 'Villa' && rooms > availableRooms) {
       alert(`Only ${availableRooms} room(s) available for this accommodation`);
       return;
     }
@@ -1644,6 +1726,7 @@ const CreateBooking: React.FC = () => {
         check_out: formData.check_out,
         adults,
         children,
+        extra_adults, // Add to payload
         rooms,
         food_veg,
         food_nonveg,
@@ -1670,7 +1753,8 @@ const CreateBooking: React.FC = () => {
 
       const result = await response.json();
       console.log("result",result)
-      const totalPerson = bookingPayload.adults + bookingPayload.children;
+      // Updated total person calculation
+      const totalPerson = bookingPayload.adults + bookingPayload.children + bookingPayload.extra_adults;
 
 downloadPdf(
   bookingPayload.guest_email,
@@ -1685,6 +1769,7 @@ downloadPdf(
   totalPerson,   // 👈 correct position
   bookingPayload.adults,
   bookingPayload.children,
+  bookingPayload.extra_adults, // Pass extra_adults to PDF
   bookingPayload.food_veg,
   bookingPayload.food_nonveg,
   bookingPayload.food_jain,
@@ -1876,63 +1961,92 @@ downloadPdf(
                 />
               </div>
 
-              <div>
-                <label htmlFor="children" className="block text-sm font-medium text-gray-700">
-                  Children
-                </label>
-                <input
-                  type="number"
-                  id="children"
-                  name="children"
-                  min="0"
-                  value={formData.children}
-                  onChange={handleChange}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-navy-500 focus:border-navy-500 sm:text-sm"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="rooms" className="block text-sm font-medium text-gray-700">
-                  Number of Rooms *
-                </label>
-                <input
-                  type="number"
-                  id="rooms"
-                  name="rooms"
-                  min={availableRooms > 0 ? 1 : 0}
-                  max={availableRooms}
-                  value={formData.rooms}
-                  onChange={handleChange}
-                  className={`mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-navy-500 focus:border-navy-500 sm:text-sm ${availableRooms <= 0 ? 'bg-gray-100 text-gray-500' : ''
-                    }`}
-                  required
-                  disabled={availableRooms <= 0}
-                />
-                <div className="mt-1 text-sm text-gray-500">
-                  {showRoomAvailability ? (
-                    availableRooms <= 0 ? (
-                      <span className="text-red-600 font-medium">
-                        All rooms booked for the selected date
-                      </span>
-                    ) : (
-                      `${availableRooms} room(s) available (Total: ${selectedAccommodation?.available_rooms || 0
-                      }, Booked: ${bookedRooms}, Blocked: ${blockedRoomsCount})`
-                    )
-                  ) : formData.accommodation_id && !formData.check_in ? (
-                    'Select a date to see availability'
-                  ) : null}
+              {/* Conditionally render Children input */}
+              {selectedAccommodation?.type !== 'Villa' && (
+                <div>
+                  <label htmlFor="children" className="block text-sm font-medium text-gray-700">
+                    Children
+                  </label>
+                  <input
+                    type="number"
+                    id="children"
+                    name="children"
+                    min="0"
+                    value={formData.children}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-navy-500 focus:border-navy-500 sm:text-sm"
+                  />
                 </div>
-              </div>
+              )}
+
+              {/* Conditionally render Extra Adult Guest input */}
+              {selectedAccommodation?.type === 'Villa' && (
+                <div>
+                  <label htmlFor="extra_adults" className="block text-sm font-medium text-gray-700">
+                    Extra Adult Guest
+                  </label>
+                  <input
+                    type="number"
+                    id="extra_adults"
+                    name="extra_adults"
+                    min="0"
+                    value={formData.extra_adults}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-navy-500 focus:border-navy-500 sm:text-sm"
+                  />
+                </div>
+              )}
+
+              {/* Conditionally render Number of Rooms input */}
+              {selectedAccommodation?.type !== 'Villa' && (
+                <div>
+                  <label htmlFor="rooms" className="block text-sm font-medium text-gray-700">
+                    Number of Rooms *
+                  </label>
+                  <input
+                    type="number"
+                    id="rooms"
+                    name="rooms"
+                    min={availableRooms > 0 ? 1 : 0}
+                    max={availableRooms}
+                    value={formData.rooms}
+                    onChange={handleChange}
+                    className={`mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-navy-500 focus:border-navy-500 sm:text-sm ${availableRooms <= 0 ? 'bg-gray-100 text-gray-500' : ''
+                      }`}
+                    required
+                    disabled={availableRooms <= 0}
+                  />
+                  <div className="mt-1 text-sm text-gray-500">
+                    {showRoomAvailability ? (
+                      availableRooms <= 0 ? (
+                        <span className="text-red-600 font-medium">
+                          All rooms booked for the selected date
+                        </span>
+                      ) : (
+                        `${availableRooms} room(s) available (Total: ${selectedAccommodation?.available_rooms || 0
+                        }, Booked: ${bookedRooms}, Blocked: ${blockedRoomsCount})`
+                      )
+                    ) : formData.accommodation_id && !formData.check_in ? (
+                      'Select a date to see availability'
+                    ) : null}
+                  </div>
+                </div>
+              )}
 
               {selectedAccommodation && (
                 <div className="sm:col-span-2">
                   <div className="text-sm text-gray-700">
-                    <strong>Room Capacity:</strong> Max {selectedAccommodation.capacity} guests per room
+                    <strong>
+                      {selectedAccommodation.type === 'Villa' ? 'Villa Capacity:' : 'Room Capacity:'}
+                    </strong>
+                    {' '}Max {selectedAccommodation.capacity} guests
+                    {selectedAccommodation.type !== 'Villa' && ' per room'}
                   </div>
                   <div className="text-sm text-gray-700 mt-1">
-                    <strong>Current Guests:</strong> {parseInt(formData.adults) + parseInt(formData.children)}
-                    {' '}guests for {formData.rooms} room(s) -
-                    {' '}Max allowed: {parseInt(formData.rooms) * selectedAccommodation.capacity}
+                    <strong>Current Guests:</strong> {parseInt(formData.adults) + parseInt(formData.children) + parseInt(formData.extra_adults)}
+                    {' '}guests
+                    {selectedAccommodation.type !== 'Villa' && ` for ${formData.rooms} room(s)`}
+                    {' '} - Max allowed: {parseInt(formData.rooms) * selectedAccommodation.capacity}
                   </div>
                 </div>
               )}
@@ -1940,75 +2054,78 @@ downloadPdf(
           </div>
         </div>
 
-        <div className="bg-white shadow rounded-lg overflow-hidden min-w-max">
-          <div className="p-6 space-y-6">
-            <div className="flex items-center mb-4">
-              <UtensilsCrossed className="h-5 w-5 text-navy-600 mr-2" />
-              <h2 className="text-lg font-medium text-gray-900">Food Preference</h2>
-            </div>
-
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-3 min-w-max">
-              <div>
-                <label htmlFor="food_veg" className="block text-sm font-medium text-gray-700">
-                  Veg Count
-                </label>
-                <input
-                  type="number"
-                  id="food_veg"
-                  name="food_veg"
-                  min="0"
-                  max={parseInt(formData.adults) + parseInt(formData.children)}
-                  value={formData.food_veg}
-                  onChange={handleChange}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-navy-500 focus:border-navy-500 sm:text-sm"
-                />
+        {/* Conditionally render Food Preference section */}
+        {selectedAccommodation?.type !== 'Villa' && (
+          <div className="bg-white shadow rounded-lg overflow-hidden min-w-max">
+            <div className="p-6 space-y-6">
+              <div className="flex items-center mb-4">
+                <UtensilsCrossed className="h-5 w-5 text-navy-600 mr-2" />
+                <h2 className="text-lg font-medium text-gray-900">Food Preference</h2>
               </div>
 
-              <div>
-                <label htmlFor="food_nonveg" className="block text-sm font-medium text-gray-700">
-                  Non-Veg Count
-                </label>
-                <input
-                  type="number"
-                  id="food_nonveg"
-                  name="food_nonveg"
-                  min="0"
-                  max={parseInt(formData.adults) + parseInt(formData.children)}
-                  value={formData.food_nonveg}
-                  onChange={handleChange}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-navy-500 focus:border-navy-500 sm:text-sm"
-                />
-              </div>
-
-              <div>
-                <label htmlFor="food_jain" className="block text-sm font-medium text-gray-700">
-                  Jain Count
-                </label>
-                <input
-                  type="number"
-                  id="food_jain"
-                  name="food_jain"
-                  min="0"
-                  max={parseInt(formData.adults) + parseInt(formData.children)}
-                  value={formData.food_jain}
-                  onChange={handleChange}
-                  className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-navy-500 focus:border-navy-500 sm:text-sm"
-                />
-              </div>
-
-              <div className="sm:col-span-3">
-                <div className="text-sm text-gray-700">
-                  <strong>Food Preferences:</strong> Veg: {formData.food_veg},
-                  Non-Veg: {formData.food_nonveg}, Jain: {formData.food_jain}
-                  {' '} | Total: {parseInt(formData.food_veg) + parseInt(formData.food_nonveg) + parseInt(formData.food_jain)}
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-3 min-w-max">
+                <div>
+                  <label htmlFor="food_veg" className="block text-sm font-medium text-gray-700">
+                    Veg Count
+                  </label>
+                  <input
+                    type="number"
+                    id="food_veg"
+                    name="food_veg"
+                    min="0"
+                    max={parseInt(formData.adults) + parseInt(formData.children) + parseInt(formData.extra_adults)}
+                    value={formData.food_veg}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-navy-500 focus:border-navy-500 sm:text-sm"
+                  />
                 </div>
-                <div className="text-sm text-gray-700 mt-1">
-                  <strong>Total Guests:</strong> {parseInt(formData.adults) + parseInt(formData.children)}
+
+                <div>
+                  <label htmlFor="food_nonveg" className="block text-sm font-medium text-gray-700">
+                    Non-Veg Count
+                  </label>
+                  <input
+                    type="number"
+                    id="food_nonveg"
+                    name="food_nonveg"
+                    min="0"
+                    max={parseInt(formData.adults) + parseInt(formData.children) + parseInt(formData.extra_adults)}
+                    value={formData.food_nonveg}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-navy-500 focus:border-navy-500 sm:text-sm"
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="food_jain" className="block text-sm font-medium text-gray-700">
+                    Jain Count
+                  </label>
+                  <input
+                    type="number"
+                    id="food_jain"
+                    name="food_jain"
+                    min="0"
+                    max={parseInt(formData.adults) + parseInt(formData.children) + parseInt(formData.extra_adults)}
+                    value={formData.food_jain}
+                    onChange={handleChange}
+                    className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-navy-500 focus:border-navy-500 sm:text-sm"
+                  />
+                </div>
+
+                <div className="sm:col-span-3">
+                  <div className="text-sm text-gray-700">
+                    <strong>Food Preferences:</strong> Veg: {formData.food_veg},
+                    Non-Veg: {formData.food_nonveg}, Jain: {formData.food_jain}
+                    {' '} | Total: {parseInt(formData.food_veg) + parseInt(formData.food_nonveg) + parseInt(formData.food_jain)}
+                  </div>
+                  <div className="text-sm text-gray-700 mt-1">
+                    <strong>Total Guests:</strong> {parseInt(formData.adults) + parseInt(formData.children) + parseInt(formData.extra_adults)}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
 
         <div className="bg-white shadow rounded-lg overflow-hidden min-w-max">
           <div className="p-6 space-y-6">
