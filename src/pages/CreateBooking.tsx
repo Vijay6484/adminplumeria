@@ -16,10 +16,10 @@ interface Accommodation {
   longitude: number;
   adultPrice?: number;
   childPrice?: number;
-  capacity: number;
+  capacity: number; // This will be treated as "Base Capacity" for villas
   type?: string;
   MaxPersonVilla?: number;
-  RatePerPerson?: number;
+  RatePerPerson?: number; // This is the "Extra Person Charge" for villas
 }
 
 interface Coupon {
@@ -82,7 +82,7 @@ const CreateBooking: React.FC = () => {
     check_out: '',
     adults: '1',
     children: '0',
-    extra_adults: '0', // Added field for extra adults
+    extra_adults: '0', // This is for extra guests *above* base capacity
     rooms: '1',
     food_veg: '0',
     food_nonveg: '0',
@@ -196,6 +196,7 @@ const CreateBooking: React.FC = () => {
         throw new Error('Failed to fetch accommodation details');
       }
       const data = await response.json();
+      console.log(data);
       const accommodation: Accommodation = {
         id: data.id,
         name: data.basicInfo?.name || 'Unnamed Accommodation',
@@ -206,13 +207,20 @@ const CreateBooking: React.FC = () => {
         address: data.location?.address || '',
         latitude: data.location?.coordinates?.latitude || 0,
         longitude: data.location?.coordinates?.longitude || 0,
-        adultPrice: data.packages?.pricing?.adult || 0,
+        adultPrice: data.packages?.pricing?.adult || 0, // This is the FLAT VILLA RATE
         childPrice: data.packages?.pricing?.child || 0,
-        capacity: data.basicInfo?.capacity || 4,
-        type: data.basicInfo?.type || undefined, // Fetch accommodation type
-        MaxPersonVilla: data.packages?.pricing?.MaxPersonVilla || undefined, // Fetch villa details
-        RatePerPerson: data.packages?.pricing?.RatePerPerson || undefined // Fetch villa details
+        capacity: data.basicInfo?.capacity || 4, // This is the BASE CAPACITY
+        type: data.basicInfo?.type || undefined,
+        
+        // --- 🚀 HERE IS THE FIX ---
+        // We read the property 'RatePersonVilla' from the API response
+        // and assign it to our 'RatePerPerson' variable.
+        // We do the same for 'MaxPersonVilla' just in case.
+        
+        MaxPersonVilla: data.basicInfo?.MaxPersonVilla || undefined, 
+        RatePerPerson: data.basicInfo?.RatePersonVilla || undefined 
       };
+      
       setSelectedAccommodation(accommodation);
       setAvailableRooms(0);
       setShowRoomAvailability(false);
@@ -229,7 +237,6 @@ const CreateBooking: React.FC = () => {
       console.error('Error fetching accommodation details:', error);
     }
   }
-
   const fetchBookedRooms = async (accommodationId: number, checkInDate: string) => {
     try {
       const response = await fetch(`${_BASE_URL}/admin/bookings/room-occupancy?check_in=${checkInDate}&id=${accommodationId}`);
@@ -370,7 +377,9 @@ const CreateBooking: React.FC = () => {
     return Math.max(0, discountedAmount);
   };
 
-  // ---*** UPDATED PRICE CALCULATION LOGIC ***---
+  //
+  // --- *** 🚀 CHANGE 1: UPDATED PRICE CALCULATION LOGIC *** ---
+  //
   useEffect(() => {
     if (!selectedAccommodation) {
       setFormData(prev => ({
@@ -384,7 +393,6 @@ const CreateBooking: React.FC = () => {
     const adults = parseInt(formData.adults) || 0;
     const children = parseInt(formData.children) || 0;
     const extra_adults = parseInt(formData.extra_adults) || 0;
-    const rooms = parseInt(formData.rooms) || 1; // Get number of rooms
     
     // Calculate number of days (or nights)
     const numberOfDays = calculateNumberOfDays(formData.check_in, formData.check_out);
@@ -402,20 +410,29 @@ const CreateBooking: React.FC = () => {
     let baseTotal = 0;
 
     // Handle different pricing logic for villas
+  
+
     if (selectedAccommodation.type === 'Villa') {
-      // --- CORRECTED VILLA LOGIC ---
-      // Logic: (Base Villa Price Per Day + (Extra Person Rate * Extra Adults)) * Number of Days
-      // Assumes 'adultPrice' is the base per-day charge for the villa.
-      const baseVillaRatePerDay = selectedAccommodation.adultPrice || 0; 
-      const extraPersonChargePerDay = (selectedAccommodation.RatePerPerson || 0) * extra_adults;
-      const totalPerDayPerVilla = baseVillaRatePerDay + extraPersonChargePerDay;
       
-      // rooms is 1 for Villa, but multiplying is fine.
-      baseTotal = totalPerDayPerVilla * rooms * numberOfDays; 
+      console.log(selectedAccommodation);
+      // NEW LOGIC: (One Villa Price + (Extra Person Rate * extra persons)) * days
+      
+      // 1. This is the flat "one villa price" (e.g., for up to 15 guests)
+      //    We use 'adultPrice' field to store the flat villa rate.
+      const villaPricePerDay = (selectedAccommodation.adultPrice || 0);
+      
+      // 2. This is the "per person charge" only for extra adults
+      const extraPersonChargePerDay = (selectedAccommodation.RatePerPerson || 0) * extra_adults;
+      console.log('Extra Person Charge Per Day:', extraPersonChargePerDay);
+      
+      // 3. Add them together for the total daily rate
+      const totalPerDayPerVilla = Number(villaPricePerDay) + Number(extraPersonChargePerDay);
+      console.log('Total Per Day Per Villa:', Number(totalPerDayPerVilla));
+      
+      baseTotal = totalPerDayPerVilla * numberOfDays; 
 
     } else {
       // Regular logic: ((Adult price * adults) + (Child price * children)) * days
-      // This assumes price is per person per day.
       const adultPricePerDay = (selectedAccommodation.adultPrice || 0) * adults;
       const childPricePerDay = (selectedAccommodation.childPrice || 0) * children;
       const totalPerDay = adultPricePerDay + childPricePerDay;
@@ -434,8 +451,8 @@ const CreateBooking: React.FC = () => {
     selectedAccommodation,
     formData.adults,
     formData.children,
-    formData.extra_adults,
-    formData.rooms,
+    formData.extra_adults, // This is now a key part of the villa calculation
+    formData.rooms, 
     formData.check_in,  
     formData.check_out, 
     appliedCoupon
@@ -1683,11 +1700,25 @@ const CreateBooking: React.FC = () => {
     const totalGuests = adults + children + extra_adults; // Updated total
     const totalFood = food_veg + food_nonveg + food_jain;
 
+    //
+    // --- *** 🚀 CHANGE 2: UPDATED VALIDATION LOGIC *** ---
+    //
     if (selectedAccommodation) {
-      const maxGuestsPerRoom = selectedAccommodation.capacity;
-      if (totalGuests > rooms * maxGuestsPerRoom) {
-        alert(`Maximum ${maxGuestsPerRoom} guests per room. You have ${totalGuests} guests for ${rooms} room(s).`);
-        return;
+      const baseCapacity = selectedAccommodation.capacity;
+      
+      if (selectedAccommodation.type === 'Villa') {
+        // Validation for Villa:
+        // Check if the "Adults" field (base guests) exceeds the "Base Capacity"
+        if (adults > baseCapacity) {
+          alert(`Base capacity for the villa is ${baseCapacity}. Please enter ${baseCapacity} or fewer guests in the "Adults" field. Use the "Extra Adult Guest" field for any additional guests.`);
+          return;
+        }
+      } else {
+        // Validation for regular rooms (your original logic)
+        if (totalGuests > rooms * baseCapacity) {
+          alert(`Maximum ${baseCapacity} guests per room. You have ${totalGuests} guests for ${rooms} room(s).`);
+          return;
+        }
       }
     }
 
@@ -1756,6 +1787,12 @@ const CreateBooking: React.FC = () => {
       // Updated total person calculation
       const totalPerson = bookingPayload.adults + bookingPayload.children + bookingPayload.extra_adults;
 
+      // Use selectedAccommodation state for PDF details (cleaner)
+      const accommodationName = selectedAccommodation?.name || '';
+      const accommodationAddress = selectedAccommodation?.address || '';
+      const latitude = (selectedAccommodation?.latitude || 0).toString();
+      const longitude = (selectedAccommodation?.longitude || 0).toString();
+
 downloadPdf(
   bookingPayload.guest_email,
   bookingPayload.guest_name,
@@ -1766,23 +1803,23 @@ downloadPdf(
   bookingPayload.advance_amount,
   (bookingPayload.total_amount - bookingPayload.advance_amount),
   bookingPayload.guest_phone || '',
-  totalPerson,   // 👈 correct position
+  totalPerson,
   bookingPayload.adults,
   bookingPayload.children,
-  bookingPayload.extra_adults, // Pass extra_adults to PDF
+  bookingPayload.extra_adults,
   bookingPayload.food_veg,
   bookingPayload.food_nonveg,
   bookingPayload.food_jain,
-  accommodations.find(acc => acc.id === bookingPayload.accommodation_id)?.name || '',
-  accommodations.find(acc => acc.id === bookingPayload.accommodation_id)?.address || '',
-  (accommodations.find(acc => acc.id === bookingPayload.accommodation_id)?.latitude || '').toString(),
+  accommodationName,
+  accommodationAddress,
+  latitude,
   bookingPayload.coupon,
   bookingPayload.discount,
   bookingPayload.full_amount,
-  bookingPayload.rooms,   // 👈 now rooms at correct place
-  result.data.owner_name.toString() || '',   // 👈 if available
-  result.data.owner_phone.toString() || '',  // 👈 if available
-  (accommodations.find(acc => acc.id === bookingPayload.accommodation_id)?.longitude || '').toString(),
+  bookingPayload.rooms,
+  result.data.owner_name.toString() || '',
+  result.data.owner_phone.toString() || '',
+  longitude,
   result.data.owner_email.toString()
 );
 
@@ -1947,7 +1984,8 @@ downloadPdf(
 
               <div>
                 <label htmlFor="adults" className="block text-sm font-medium text-gray-700">
-                  Adults *
+                  {/* Conditionally label for Villa */}
+                  {selectedAccommodation?.type === 'Villa' ? 'Base Guests' : 'Adults *'}
                 </label>
                 <input
                   type="number"
@@ -1994,6 +2032,9 @@ downloadPdf(
                     onChange={handleChange}
                     className="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-navy-500 focus:border-navy-500 sm:text-sm"
                   />
+                   <div className="mt-1 text-sm text-gray-500">
+                    Charge: ₹{selectedAccommodation.RatePerPerson || 0} / guest
+                  </div>
                 </div>
               )}
 
@@ -2035,18 +2076,26 @@ downloadPdf(
 
               {selectedAccommodation && (
                 <div className="sm:col-span-2">
+                  {/*
+                    // --- *** 🚀 CHANGE 3: UPDATED UI TEXT *** ---
+                  */}
                   <div className="text-sm text-gray-700">
                     <strong>
-                      {selectedAccommodation.type === 'Villa' ? 'Villa Capacity:' : 'Room Capacity:'}
+                      {selectedAccommodation.type === 'Villa' ? 'Villa Base Capacity:' : 'Room Capacity:'}
                     </strong>
-                    {' '}Max {selectedAccommodation.capacity} guests
-                    {selectedAccommodation.type !== 'Villa' && ' per room'}
+                    {' '}{selectedAccommodation.capacity} guests
+                    {selectedAccommodation.type === 'Villa' ? ' (included in price)' : ' per room'}
                   </div>
+                  
                   <div className="text-sm text-gray-700 mt-1">
                     <strong>Current Guests:</strong> {parseInt(formData.adults) + parseInt(formData.children) + parseInt(formData.extra_adults)}
                     {' '}guests
                     {selectedAccommodation.type !== 'Villa' && ` for ${formData.rooms} room(s)`}
-                    {' '} - Max allowed: {parseInt(formData.rooms) * selectedAccommodation.capacity}
+                    
+                    {/* Hide max allowed for villa as it's confusing */}
+                    {selectedAccommodation.type !== 'Villa' && 
+                      ` - Max allowed: ${parseInt(formData.rooms) * selectedAccommodation.capacity}`
+                    }
                   </div>
                 </div>
               )}
