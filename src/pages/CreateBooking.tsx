@@ -1767,6 +1767,7 @@ const CreateBooking: React.FC = () => {
 	      full_amount : parseFloat(formData.total_amount),
         total_amount: parseFloat(formData.discounted_amount || formData.total_amount),
         advance_amount: parseFloat(formData.advance_amount || '0'),
+        
       };
       console.log("bookingPayload :",bookingPayload);
       const response = await fetch(`https://a.plumeriaretreat.com/admin/bookings/offline`, {
