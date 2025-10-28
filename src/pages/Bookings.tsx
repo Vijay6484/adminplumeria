@@ -614,6 +614,9 @@ const Bookings: React.FC = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden lg:table-cell">
                       Check Out
                     </th>
+                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider ">
+                      Number Of Booked Rooms
+                    </th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Amount
                     </th>
@@ -678,6 +681,9 @@ const Bookings: React.FC = () => {
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500 hidden lg:table-cell">
                         {booking.checkOut}
+                      </td>
+                       <td className="px-6 py-4 text-sm font-medium">
+                        {booking.rooms}
                       </td>
                       <td className="px-6 py-4 text-sm font-medium text-gray-900">
                         {booking.amount}
