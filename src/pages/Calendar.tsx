@@ -4,7 +4,7 @@ import { Calendar as CalendarIcon, X, Trash2, Edit2, AlertCircle, CheckCircle, B
 import axios from 'axios';
 
 // API Configuration
-const admin_BASE_URL = 'https://adminplumeria-back.onrender.com/admin/calendar';
+const admin_BASE_URL = 'https://a.plumeriaretreat.com/admin/calendar';
 
 interface Accommodation {
   id: number;
@@ -99,6 +99,33 @@ const Calendar = () => {
     }
   };
 
+  // Fetch blocked date prices for specific date and accommodation
+  const fetchBlockedDatePrices = async (dateStr: string, accommodationId: number) => {
+    try {
+      const response = await fetch(`${admin_BASE_URL}/blocked-dates`);
+      if (!response.ok) throw new Error('Failed to fetch blocked dates');
+      const data = await response.json();
+      
+      if (data.success) {
+        const blockedDate = data.data.find((item: BlockedDate) => 
+          item.blocked_date.includes(dateStr) && 
+          item.accommodation_id === accommodationId
+        );
+        
+        if (blockedDate) {
+          return {
+            adult: blockedDate.adult_price,
+            child: blockedDate.child_price
+          };
+        }
+      }
+      return null;
+    } catch (error) {
+      console.error('Error fetching blocked date prices:', error);
+      return null;
+    }
+  };
+
   const calculateAvailableRooms = async (
     accommodationId: number,
     dateStr: string
@@ -187,7 +214,7 @@ const Calendar = () => {
 
   const fetchAccommodations = async () => {
     try {
-      const response = await fetch(`https://adminplumeria-back.onrender.com/admin/properties/accommodations`);
+      const response = await fetch(`https://a.plumeriaretreat.com/admin/properties/accommodations`);
       if (!response.ok) throw new Error('Failed to fetch accommodations');
       const data = await response.json();
       if (data.data.length > 0) {
@@ -203,7 +230,7 @@ const Calendar = () => {
   const fetchBookedRooms = async (accommodationId: number, checkInDate: string) => {
     try {
       setIsFetchingBookedRooms(true);
-      const response = await fetch(`https://adminplumeria-back.onrender.com/admin/bookings/room-occupancy?check_in=${checkInDate}&id=${accommodationId}`);
+      const response = await fetch(`https://a.plumeriaretreat.com/admin/bookings/room-occupancy?check_in=${checkInDate}&id=${accommodationId}`);
       if (!response.ok) {
         throw new Error('Failed to fetch booked rooms');
       }
@@ -240,6 +267,24 @@ const Calendar = () => {
       adult: parseFloat(accommodation.package.pricing.adult) || null,
       child: parseFloat(accommodation.package.pricing.child) || null
     };
+  };
+
+  // Get updated prices from blocked dates API
+  const getUpdatedPrices = async (dateStr: string, accommodationId: number) => {
+    try {
+      const blockedPrices = await fetchBlockedDatePrices(dateStr, accommodationId);
+      if (blockedPrices) {
+        return {
+          adult: blockedPrices.adult,
+          child: blockedPrices.child
+        };
+      }
+      // If no blocked date found, return default prices
+      return getDefaultPrices(accommodationId);
+    } catch (error) {
+      console.error('Error getting updated prices:', error);
+      return getDefaultPrices(accommodationId);
+    }
   };
 
   const getRoomStatus = (accommodationId: number, dateStr: string) => {
@@ -320,7 +365,6 @@ const Calendar = () => {
         setEditingDate(blockedDate);
         setReason(blockedDate.reason || '');
         setSelectedRoom(0);
-        // setSelectedRoom(blockedDate.rooms || 0);
         setAdultPrice(blockedDate.adult_price || '');
         setChildPrice(blockedDate.child_price || '');
         setIsBlockAll(blockedDate.rooms === null);
@@ -337,9 +381,11 @@ const Calendar = () => {
       } else {
         // Reset to default values if no blocked date found
         if (selectedAccommodationId) {
-          const defaultPrices = getDefaultPrices(selectedAccommodationId);
-          setAdultPrice(defaultPrices.adult || '');
-          setChildPrice(defaultPrices.child || '');
+          // Fetch updated prices from blocked dates API
+          const updatedPrices = await getUpdatedPrices(dayStr, selectedAccommodationId);
+          setAdultPrice(updatedPrices.adult || '');
+          setChildPrice(updatedPrices.child || '');
+          
           const available = await calculateAvailableRooms(selectedAccommodationId, dayStr);
           setAvailableRooms(available);
           setSelectedRoom(available);
@@ -361,19 +407,26 @@ const Calendar = () => {
     setSelectedRoom(null);
     setIsBlockAll(false);
     
-    if (id) {
+    if (id && selectedDay) {
+      const dateStr = format(selectedDay, 'yyyy-MM-dd');
+      
+      // Fetch updated prices from blocked dates API
+      const updatedPrices = await getUpdatedPrices(dateStr, id);
+      setAdultPrice(updatedPrices.adult || '');
+      setChildPrice(updatedPrices.child || '');
+      
+      const available = await calculateAvailableRooms(id, dateStr);
+      setAvailableRooms(available);
+      setSelectedRoom(available);
+      const status = getRoomStatus(id, dateStr);
+      setRoomStatus(status);
+    } else if (id) {
+      // If no date selected but accommodation changed, show default prices
       const defaultPrices = getDefaultPrices(id);
       setAdultPrice(defaultPrices.adult || '');
       setChildPrice(defaultPrices.child || '');
-      
-      if (selectedDay) {
-        const dateStr = format(selectedDay, 'yyyy-MM-dd');
-        const available = await calculateAvailableRooms(id, dateStr);
-        setAvailableRooms(available);
-        setSelectedRoom(available);
-        const status = getRoomStatus(id, dateStr);
-        setRoomStatus(status);
-      }
+      setAvailableRooms(null);
+      setRoomStatus({});
     } else {
       setAdultPrice('');
       setChildPrice('');
