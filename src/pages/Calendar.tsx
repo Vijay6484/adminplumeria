@@ -53,6 +53,7 @@ const Calendar = () => {
   const [accommodations, setAccommodations] = useState<Accommodation[]>([]);
   const [reason, setReason] = useState('');
   const [selectedAccommodationId, setSelectedAccommodationId] = useState<number | null>(null);
+  const [selectedAccommodationType, setSelectedAccommodationType] = useState<string | null>(null); // <-- CHANGED 1: New state added
   const [selectedRoom, setSelectedRoom] = useState<number | null>(0);
   const [showForm, setShowForm] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -361,6 +362,9 @@ const Calendar = () => {
         b.accommodation_id === selectedAccommodationId
       );
       
+      const accommodation = accommodations.find(a => a.id === (blockedDate ? blockedDate.accommodation_id : selectedAccommodationId));
+      setSelectedAccommodationType(accommodation ? accommodation.type.toLowerCase() : null);
+
       if (blockedDate) {
         setEditingDate(blockedDate);
         setReason(blockedDate.reason || '');
@@ -403,6 +407,8 @@ const Calendar = () => {
 
   const handleAccommodationChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const id = e.target.value ? Number(e.target.value) : null;
+    const accommodation = accommodations.find(a => a.id === id); // <-- CHANGED 2: Find accommodation
+    setSelectedAccommodationType(accommodation ? accommodation.type.toLowerCase() : null); // <-- CHANGED 2: Set its type
     setSelectedAccommodationId(id);
     setSelectedRoom(null);
     setIsBlockAll(false);
@@ -432,6 +438,7 @@ const Calendar = () => {
       setChildPrice('');
       setAvailableRooms(null);
       setRoomStatus({});
+      setSelectedAccommodationType(null); // <-- CHANGED 2: Reset on clear
     }
   };
 
@@ -488,71 +495,58 @@ const Calendar = () => {
         // Update existing entry
         isUpdate = true;
         blockedDateId = existingEntry.id;
-        setEditingDate(existingEntry);
+        // IMPORTANT: We set editingDate here so 'isUpdate' logic inside
+        // the room calculator works correctly, but we will NOT use
+        // its old values for the payload.
+        setEditingDate(existingEntry); 
       }
     }
     
-    // Prepare payload based on active section
+    // ===================================================================
+    // SOLUTION: Build the payload from CURRENT STATE, not 'editingDate'
+    // ===================================================================
+    
     const payload: any = {
       dates: [dateStr],
       reason,
       accommodation_id: selectedAccommodationId,
     };
     
-    // Handle price management section
-    if (activeSection === 'price') {
-      // For price section, set the price values
-      payload.adult_price = adultPrice === '' ? null : adultPrice;
-      payload.child_price = childPrice === '' ? null : childPrice;
+    // --- 1. ALWAYS get price data from state ---
+    payload.adult_price = adultPrice === '' ? null : adultPrice;
+    payload.child_price = childPrice === '' ? null : childPrice;
+
+    // --- 2. ALWAYS get inventory data from state ---
+    if (isBlockAll) {
+      payload.room_number = null; // 'null' means block all
+    } else {
+      // Calculate the room value based on current state
+      const currentSelected = selectedRoom || 0;
+      const currentAvailable = availableRooms || 0;
       
-      // For price section, keep existing room values if updating
-      if (isUpdate && editingDate) {
-        payload.room_number = editingDate.rooms === null ? null : (editingDate.rooms || 0);
-      } else {
-        // For new entries in price section, don't change room inventory
-        payload.room_number = null;
-      }
-    } 
-    // Handle inventory management section
-    else if (activeSection === 'inventory') {
-      // For inventory section, calculate room value
-      if (isBlockAll) {
-        payload.room_number = null;
-      } else {
-        // Calculate the difference between selected rooms and available rooms
-        const currentSelected = selectedRoom || 0;
-        const currentAvailable = availableRooms || 0;
-        let roomValue = currentSelected - currentAvailable;
-        
-        // Ensure roomValue is not null
-        if (roomValue === null) {
-          roomValue = 0;
-        }
-        
-        console.log("Room value in inventory ", roomValue);
-        
-        // If updating an existing entry, adjust the room value based on existing data
-        if (isUpdate) {
-          const existingBlockedRooms = blockedRoomForDate || 0;
-          console.log("existingBlockedRooms ", existingBlockedRooms);
-          roomValue = existingBlockedRooms + roomValue;
-        }
-        
-        payload.room_number = roomValue;
+      // This is the *change* in rooms the user wants
+      let roomValue = currentSelected - currentAvailable;
+      
+      // If we are updating an existing entry, we must add this change
+      // to the *already* blocked rooms.
+      if (isUpdate) {
+        // `blockedRoomForDate` is set when a day is clicked
+        // and holds the *existing* 'rooms' value from the database.
+        const existingBlockedRooms = blockedRoomForDate || 0;
+        console.log("existingBlockedRooms ", existingBlockedRooms);
+        roomValue = existingBlockedRooms + roomValue;
       }
       
-      // For inventory section, keep existing price values if updating
-      if (isUpdate && editingDate) {
-        payload.adult_price = editingDate.adult_price === null ? null : (editingDate.adult_price || 0);
-        payload.child_price = editingDate.child_price === null ? null : (editingDate.child_price || 0);
-      } else {
-        // For new entries in inventory section, use default prices
-        const defaultPrices = getDefaultPrices(selectedAccommodationId);
-        payload.adult_price = defaultPrices.adult;
-        payload.child_price = defaultPrices.child;
-      }
+      // If this is a new entry, roomValue will be (e.g.) 10 - 10 = 0
+      // which correctly means "no inventory change"
+      
+      payload.room_number = roomValue;
     }
-    
+
+    // ===================================================================
+    // End of Solution
+    // ===================================================================
+
     console.log('Payload to save:', payload);
     
     const url = isUpdate
@@ -623,6 +617,7 @@ const Calendar = () => {
     setAvailableRooms(null);
     setRoomStatus({});
     setActiveSection('price');
+    setSelectedAccommodationType(null); // <-- CHANGED 3: Reset new state
     setIsBlockAll(false);
     lastClickedDate.current = null;
   };
@@ -918,7 +913,7 @@ const Calendar = () => {
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label htmlFor="adultPrice" className="block text-sm font-medium text-gray-700 mb-1">
-                          Adult Price (₹)
+                         Extra Adult Price (₹)
                         </label>
                         <input
                           type="number"
@@ -937,8 +932,9 @@ const Calendar = () => {
                         )}
                       </div>
                       <div>
+                        {/* <-- CHANGED 4: Conditional Label --> */}
                         <label htmlFor="childPrice" className="block text-sm font-medium text-gray-700 mb-1">
-                          Child Price (₹)
+                          {selectedAccommodationType === 'villa' ? 'Villa package (₹)' : 'Child Price (₹)'}
                         </label>
                         <input
                           type="number"
@@ -1107,6 +1103,10 @@ const Calendar = () => {
                           setEditingDate(date);
                           setReason(date.reason || '');
                           setSelectedAccommodationId(date.accommodation_id || null);
+                          // <-- CHANGED 3: Set type on edit click
+                          const accommodation = accommodations.find(a => a.id === date.accommodation_id);
+                          setSelectedAccommodationType(accommodation ? accommodation.type.toLowerCase() : null);
+                          //
                           setSelectedRoom(date.rooms || null);
                           setIsBlockAll(date.rooms === null);
                           setShowForm(true);
