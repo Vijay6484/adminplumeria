@@ -9,7 +9,7 @@ import 'react-quill/dist/quill.snow.css';
 
 const admin_BASE_URL = 'https://a.plumeriaretreat.com';
 
-const PROPERTY_TYPES = ['Villa', 'Suite', 'Cottage', 'Bungalow', 'Glamping', 'Standard', 'Deluxe'];
+const PROPERTY_TYPES = ['Villa', 'Suite', 'Cottage', 'Bungalow', 'Glamping', 'Standard', 'Deluxe','Couple Cottage'];
 
 // --- MODIFIED: Updated interface for new Villa fields ---
 interface Accommodation {
