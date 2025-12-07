@@ -37,7 +37,10 @@ interface BlockedDate {
   id: number;
   accommodation_id: number;
   blocked_date: string;
-  rooms_blocked: number;
+  rooms_blocked?: number; // Legacy field
+  rooms?: string | number; // Actual field from API (can be string like '-10', 'null', '0')
+  adult_price?: number | null; // Custom adult price for this date
+  child_price?: number | null; // Custom child price for this date
 }
 
 const _BASE_URL = 'https://a.plumeriaretreat.com';
@@ -132,13 +135,37 @@ const CreateBooking: React.FC = () => {
   useEffect(() => {
     const fetchBlockedDates = async () => {
       try {
+        console.log('=== FETCHING BLOCKED DATES ===');
         const response = await fetch(`${_BASE_URL}/admin/calendar/blocked-dates`);
         const data = await response.json();
+        console.log('Blocked Dates API Response:', data);
+        console.log('Response Success:', data.success);
+        console.log('Response Data Type:', Array.isArray(data.data) ? 'Array' : typeof data.data);
         if (data.success && Array.isArray(data.data)) {
+          console.log('Blocked Dates Count:', data.data.length);
+          console.log('Sample Blocked Date Entry:', data.data[0]);
+          if (data.data.length > 0) {
+            console.log('First Blocked Date Structure:', {
+              id: data.data[0].id,
+              accommodation_id: data.data[0].accommodation_id,
+              blocked_date: data.data[0].blocked_date,
+              rooms: data.data[0].rooms,
+              rooms_blocked: data.data[0].rooms_blocked,
+              adult_price: data.data[0].adult_price,
+              child_price: data.data[0].child_price,
+              rooms_type: typeof data.data[0].rooms
+            });
+          }
           setBlockedDates(data.data);
+          console.log('Blocked dates set successfully');
+        } else {
+          console.warn('Blocked dates response format unexpected:', data);
         }
+        console.log('=== END FETCHING BLOCKED DATES ===');
       } catch (error) {
-        console.error('Error fetching blocked dates:', error);
+        console.error('=== ERROR FETCHING BLOCKED DATES ===');
+        console.error('Error:', error);
+        console.error('=== END ERROR ===');
       }
     };
 
@@ -239,14 +266,45 @@ const CreateBooking: React.FC = () => {
   }
   const fetchBookedRooms = async (accommodationId: number, checkInDate: string) => {
     try {
-      const response = await fetch(`${_BASE_URL}/admin/bookings/room-occupancy?check_in=${checkInDate}&id=${accommodationId}`);
+      const url = `${_BASE_URL}/admin/bookings/room-occupancy?check_in=${checkInDate}&id=${accommodationId}`;
+      console.log('=== FETCHING BOOKED ROOMS ===');
+      console.log('URL:', url);
+      console.log('Accommodation ID:', accommodationId);
+      console.log('Check-in Date:', checkInDate);
+      
+      const response = await fetch(url);
+      console.log('Response Status:', response.status);
+      console.log('Response OK:', response.ok);
+      
       if (!response.ok) {
         throw new Error('Failed to fetch booked rooms');
       }
       const data = await response.json();
-      return data.total_rooms || 0;
+      console.log('Raw API Response:', data);
+      console.log('Response Type:', typeof data);
+      console.log('Response Keys:', Object.keys(data));
+      
+      // Handle different response formats
+      // Format 1: {success: true, total_rooms: X}
+      // Format 2: {total_rooms: X}
+      // Format 3: {data: {total_rooms: X}}
+      let bookedCount = data.total_rooms ?? data.data?.total_rooms ?? 0;
+      console.log('Extracted Booked Count (raw):', bookedCount);
+      console.log('Booked Count Type:', typeof bookedCount);
+      
+      // Convert string to number if needed
+      if (typeof bookedCount === 'string') {
+        bookedCount = parseInt(bookedCount, 10) || 0;
+        console.log('Booked Count (parsed from string):', bookedCount);
+      }
+      
+      console.log('Final Booked Count:', bookedCount);
+      console.log('=== END FETCHING BOOKED ROOMS ===');
+      return bookedCount;
     } catch (error) {
-      console.error('Error fetching booked rooms:', error);
+      console.error('=== ERROR FETCHING BOOKED ROOMS ===');
+      console.error('Error:', error);
+      console.error('=== END ERROR ===');
       return 0;
     }
   };
@@ -278,9 +336,9 @@ const CreateBooking: React.FC = () => {
         setFormData(prev => ({ ...prev, check_out: nextDayString }));
       }
 
-      validateDates(formData.check_in, nextDayString);
+      validateDates(formData.check_in, formData.check_out || nextDayString);
     }
-  }, [formData.check_in]);
+  }, [formData.check_in, formData.check_out, blockedDates, selectedAccommodation]);
 
   useEffect(() => {
     const calculateAvailableRooms = async () => {
@@ -290,22 +348,68 @@ const CreateBooking: React.FC = () => {
       }
 
       const accommodationId = parseInt(formData.accommodation_id);
+      console.log('=== CALCULATING AVAILABLE ROOMS ===');
+      console.log('Accommodation ID:', accommodationId);
+      console.log('Check-in Date:', formData.check_in);
+      console.log('Selected Accommodation:', selectedAccommodation);
+      
       const booked = await fetchBookedRooms(accommodationId, formData.check_in);
-
+      console.log('Booked Rooms (from API):', booked);
+      console.log('Booked Rooms Type:', typeof booked);
       setBookedRooms(booked);
 
+      console.log('All Blocked Dates:', blockedDates);
+      console.log('Filtering blocked dates for accommodation_id:', accommodationId, 'and date:', formData.check_in);
+      
       const blockedForDate = blockedDates.find(
         b => b.accommodation_id === accommodationId && b.blocked_date === formData.check_in
       );
-      const blockedRooms = blockedForDate ? blockedForDate.rooms_blocked : 0;
+      console.log('Found Blocked Date Entry:', blockedForDate);
+      
+      // Blocked rooms are stored in 'rooms' field (not 'rooms_blocked')
+      // Values can be strings like '-10', 'null', '0', etc.
+      // Negative values mean rooms are blocked (e.g., '-10' means 10 rooms blocked)
+      let blockedRoomsRaw: number = 0;
+      if (blockedForDate) {
+        const roomsValue = blockedForDate.rooms ?? blockedForDate.rooms_blocked;
+        console.log('Blocked Rooms Raw Value (from API):', roomsValue);
+        console.log('Blocked Rooms Raw Type:', typeof roomsValue);
+        
+        // Handle string values like '-10', 'null', '0'
+        if (typeof roomsValue === 'string') {
+          // Handle 'null' string
+          if (roomsValue === 'null' || roomsValue === '' || roomsValue === null) {
+            blockedRoomsRaw = 0;
+          } else {
+            // Parse string to number (handles negative strings like '-10')
+            blockedRoomsRaw = parseInt(roomsValue, 10) || 0;
+          }
+        } else if (typeof roomsValue === 'number') {
+          blockedRoomsRaw = roomsValue;
+        }
+      }
+      
+      console.log('Blocked Rooms Raw Value (parsed):', blockedRoomsRaw);
+      
+      // Convert negative values to positive (e.g., -10 means 10 rooms blocked)
+      const blockedRooms = blockedRoomsRaw < 0 ? Math.abs(blockedRoomsRaw) : blockedRoomsRaw;
+      console.log('Blocked Rooms (converted):', blockedRooms);
       setBlockedRoomsCount(blockedRooms);
 
       const totalRooms = selectedAccommodation.available_rooms || 0;
       const bookedCount = booked || 0;
       const blockedCount = blockedRooms || 0;
 
+      console.log('=== CALCULATION ===');
+      console.log('Total Rooms:', totalRooms);
+      console.log('Booked Count:', bookedCount);
+      console.log('Blocked Count:', blockedCount);
+      
       const available = totalRooms - bookedCount - blockedCount;
       const availableRoomsValue = Math.max(available, 0);
+      console.log('Available Rooms:', availableRoomsValue);
+      console.log('=== END CALCULATION ===');
+      
       setAvailableRooms(availableRoomsValue);
       setShowRoomAvailability(true);
       
@@ -323,14 +427,14 @@ const CreateBooking: React.FC = () => {
     calculateAvailableRooms();
   }, [formData.accommodation_id, formData.check_in, blockedDates, selectedAccommodation]);
 
-  const validateDates = (checkIn: string, checkOut: string) => {
+  const validateDates = async (checkIn: string, checkOut: string) => {
     if (!checkIn || !checkOut) return;
 
     const startDate = new Date(checkIn);
     const endDate = new Date(checkOut);
     const accommodationId = parseInt(formData.accommodation_id);
 
-    if (!accommodationId) return;
+    if (!accommodationId || !selectedAccommodation) return;
 
     const accommodationBlockedDates = blockedDates.filter(
       date => date.accommodation_id === accommodationId
@@ -340,11 +444,42 @@ const CreateBooking: React.FC = () => {
     for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
       const dateString = d.toISOString().split('T')[0];
 
-      const isBlocked = accommodationBlockedDates.some(
-        blocked => blocked.blocked_date === dateString
+      // Check actual availability instead of just checking if blocked date entry exists
+      const booked = await fetchBookedRooms(accommodationId, dateString);
+      const blockedForDate = accommodationBlockedDates.find(
+        b => b.blocked_date === dateString
       );
+      
+      // Blocked rooms are stored in 'rooms' field (not 'rooms_blocked')
+      // Values can be strings like '-10', 'null', '0', etc.
+      // Negative values mean rooms are blocked (e.g., '-10' means 10 rooms blocked)
+      let blockedRoomsRaw: number = 0;
+      if (blockedForDate) {
+        const roomsValue = blockedForDate.rooms ?? blockedForDate.rooms_blocked;
+        // Handle string values like '-10', 'null', '0'
+        if (typeof roomsValue === 'string') {
+          // Handle 'null' string
+          if (roomsValue === 'null' || roomsValue === '' || roomsValue === null) {
+            blockedRoomsRaw = 0;
+          } else {
+            // Parse string to number (handles negative strings like '-10')
+            blockedRoomsRaw = parseInt(roomsValue, 10) || 0;
+          }
+        } else if (typeof roomsValue === 'number') {
+          blockedRoomsRaw = roomsValue;
+        }
+      }
+      
+      // Convert negative values to positive (e.g., -10 means 10 rooms blocked)
+      const blockedRooms = blockedRoomsRaw < 0 ? Math.abs(blockedRoomsRaw) : blockedRoomsRaw;
 
-      if (isBlocked) {
+      const totalRooms = selectedAccommodation.available_rooms || 0;
+      const bookedCount = booked || 0;
+      const blockedCount = blockedRooms || 0;
+      const available = totalRooms - bookedCount - blockedCount;
+
+      // Only show error if there are NO available rooms
+      if (available <= 0) {
         errorDate = dateString;
         break;
       }
@@ -408,37 +543,78 @@ const CreateBooking: React.FC = () => {
     }
 
     let baseTotal = 0;
+    const accommodationId = parseInt(formData.accommodation_id) || 0;
+    
+    // Get blocked dates for this accommodation to check for custom pricing
+    const accommodationBlockedDates = blockedDates.filter(
+      date => date.accommodation_id === accommodationId
+    );
+
+    // Calculate price day by day to handle custom pricing per date
+    const startDate = new Date(formData.check_in);
+    const endDate = new Date(formData.check_out);
+    
+    console.log('=== PRICE CALCULATION ===');
+    console.log('Number of Days:', numberOfDays);
+    console.log('Check-in:', formData.check_in);
+    console.log('Check-out:', formData.check_out);
 
     // Handle different pricing logic for villas
-  
-
     if (selectedAccommodation.type === 'Villa') {
+      console.log('Villa pricing calculation');
       
-      console.log(selectedAccommodation);
-      // NEW LOGIC: (One Villa Price + (Extra Person Rate * extra persons)) * days
-      
-      // 1. This is the flat "one villa price" (e.g., for up to 15 guests)
-      //    We use 'adultPrice' field to store the flat villa rate.
-      const villaPricePerDay = (selectedAccommodation.adultPrice || 0);
-      
-      // 2. This is the "per person charge" only for extra adults
-      const extraPersonChargePerDay = (selectedAccommodation.RatePerPerson || 0) * extra_adults;
-      console.log('Extra Person Charge Per Day:', extraPersonChargePerDay);
-      
-      // 3. Add them together for the total daily rate
-      const totalPerDayPerVilla = Number(villaPricePerDay) + Number(extraPersonChargePerDay);
-      console.log('Total Per Day Per Villa:', Number(totalPerDayPerVilla));
-      
-      baseTotal = totalPerDayPerVilla * numberOfDays; 
+      // Calculate price for each day
+      for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
+        const dateString = d.toISOString().split('T')[0];
+        const blockedForDate = accommodationBlockedDates.find(
+          b => b.blocked_date === dateString
+        );
+        
+        // Use custom villa price if available, otherwise use base price
+        const villaPricePerDay = blockedForDate?.adult_price !== null && blockedForDate?.adult_price !== undefined
+          ? parseFloat(blockedForDate.adult_price.toString()) || 0
+          : (selectedAccommodation.adultPrice || 0);
+        
+        // Extra person charge (this might also have custom pricing, but for now using base rate)
+        const extraPersonChargePerDay = (selectedAccommodation.RatePerPerson || 0) * extra_adults;
+        const totalPerDayPerVilla = Number(villaPricePerDay) + Number(extraPersonChargePerDay);
+        
+        console.log(`Day ${dateString}: Villa Price=${villaPricePerDay}, Extra Person Charge=${extraPersonChargePerDay}, Total=${totalPerDayPerVilla}`);
+        
+        baseTotal += totalPerDayPerVilla;
+      }
 
     } else {
-      // Regular logic: ((Adult price * adults) + (Child price * children)) * days
-      const adultPricePerDay = (selectedAccommodation.adultPrice || 0) * adults;
-      const childPricePerDay = (selectedAccommodation.childPrice || 0) * children;
-      const totalPerDay = adultPricePerDay + childPricePerDay;
+      // Regular logic: Calculate price for each day with custom pricing if available
+      console.log('Regular room pricing calculation');
       
-      baseTotal = totalPerDay * numberOfDays;
+      for (let d = new Date(startDate); d < endDate; d.setDate(d.getDate() + 1)) {
+        const dateString = d.toISOString().split('T')[0];
+        const blockedForDate = accommodationBlockedDates.find(
+          b => b.blocked_date === dateString
+        );
+        
+        // Use custom prices if available, otherwise use base prices
+        const adultPrice = blockedForDate?.adult_price !== null && blockedForDate?.adult_price !== undefined
+          ? parseFloat(blockedForDate.adult_price.toString()) || 0
+          : (selectedAccommodation.adultPrice || 0);
+        
+        const childPrice = blockedForDate?.child_price !== null && blockedForDate?.child_price !== undefined
+          ? parseFloat(blockedForDate.child_price.toString()) || 0
+          : (selectedAccommodation.childPrice || 0);
+        
+        const adultPricePerDay = adultPrice * adults;
+        const childPricePerDay = childPrice * children;
+        const totalPerDay = adultPricePerDay + childPricePerDay;
+        
+        console.log(`Day ${dateString}: Adult Price=${adultPrice}, Child Price=${childPrice}, Adults=${adults}, Children=${children}, Total=${totalPerDay}`);
+        
+        baseTotal += totalPerDay;
+      }
     }
+    
+    console.log('Base Total:', baseTotal);
+    console.log('=== END PRICE CALCULATION ===');
 
     const discountedTotal = calculateDiscount(baseTotal, appliedCoupon);
 
@@ -455,7 +631,8 @@ const CreateBooking: React.FC = () => {
     formData.rooms, 
     formData.check_in,  
     formData.check_out, 
-    appliedCoupon
+    appliedCoupon,
+    blockedDates // Add blockedDates to recalculate when custom pricing changes
   ]);
   
   const downloadPdf = (
@@ -1588,7 +1765,7 @@ downloadPdf(
                         </span>
                       ) : (
                         `${availableRooms} room(s) available (Total: ${selectedAccommodation?.available_rooms || 0
-                        }, Booked: ${bookedRooms}, Blocked: ${blockedRoomsCount})`
+                        }, Booked: ${bookedRooms || 0}, Blocked: ${blockedRoomsCount || 0})`
                       )
                     ) : formData.accommodation_id && !formData.check_in ? (
                       'Select a date to see availability'

@@ -69,7 +69,6 @@ const Calendar = () => {
   const [roomStatus, setRoomStatus] = useState<{ [key: number]: 'available' | 'blocked' }>({});
   const [isProcessingDayClick, setIsProcessingDayClick] = useState(false);
   const [activeSection, setActiveSection] = useState<'price' | 'inventory'>('price');
-  const [isBlockAll, setIsBlockAll] = useState(false);
   const [accommodationRooms, setAccommodationRooms] = useState<number | null>(null);
   const [blockedRoomForDate, setBlockedRoomForDate] = useState<number | null>(null);
   
@@ -329,7 +328,6 @@ const Calendar = () => {
     if (isProcessingDayClick) return;
     setAvailableRooms(null);
     setSelectedRoom(0);
-    setIsBlockAll(false);
     setIsProcessingDayClick(true);
     
     if (isBefore(startOfDay(day), startOfDay(new Date()))) {
@@ -350,7 +348,6 @@ const Calendar = () => {
       setChildPrice('');
       setAvailableRooms(null);
       setSelectedRoom(0);
-      setIsBlockAll(false);
     }
     
     setSelectedDay(day);
@@ -371,7 +368,6 @@ const Calendar = () => {
         setSelectedRoom(0);
         setAdultPrice(blockedDate.adult_price || '');
         setChildPrice(blockedDate.child_price || '');
-        setIsBlockAll(blockedDate.rooms === null);
         setActiveSection('price'); // Always show price section first
         
         if (blockedDate.accommodation_id) {
@@ -411,7 +407,6 @@ const Calendar = () => {
     setSelectedAccommodationType(accommodation ? accommodation.type.toLowerCase() : null); // <-- CHANGED 2: Set its type
     setSelectedAccommodationId(id);
     setSelectedRoom(null);
-    setIsBlockAll(false);
     
     if (id && selectedDay) {
       const dateStr = format(selectedDay, 'yyyy-MM-dd');
@@ -517,31 +512,27 @@ const Calendar = () => {
     payload.child_price = childPrice === '' ? null : childPrice;
 
     // --- 2. ALWAYS get inventory data from state ---
-    if (isBlockAll) {
-      payload.room_number = null; // 'null' means block all
-    } else {
-      // Calculate the room value based on current state
-      const currentSelected = selectedRoom || 0;
-      const currentAvailable = availableRooms || 0;
-      
-      // This is the *change* in rooms the user wants
-      let roomValue = currentSelected - currentAvailable;
-      
-      // If we are updating an existing entry, we must add this change
-      // to the *already* blocked rooms.
-      if (isUpdate) {
-        // `blockedRoomForDate` is set when a day is clicked
-        // and holds the *existing* 'rooms' value from the database.
-        const existingBlockedRooms = blockedRoomForDate || 0;
-        console.log("existingBlockedRooms ", existingBlockedRooms);
-        roomValue = existingBlockedRooms + roomValue;
-      }
-      
-      // If this is a new entry, roomValue will be (e.g.) 10 - 10 = 0
-      // which correctly means "no inventory change"
-      
-      payload.room_number = roomValue;
+    // Calculate the room value based on current state
+    const currentSelected = selectedRoom || 0;
+    const currentAvailable = availableRooms || 0;
+    
+    // This is the *change* in rooms the user wants
+    let roomValue = currentSelected - currentAvailable;
+    
+    // If we are updating an existing entry, we must add this change
+    // to the *already* blocked rooms.
+    if (isUpdate) {
+      // `blockedRoomForDate` is set when a day is clicked
+      // and holds the *existing* 'rooms' value from the database.
+      const existingBlockedRooms = blockedRoomForDate || 0;
+      console.log("existingBlockedRooms ", existingBlockedRooms);
+      roomValue = existingBlockedRooms + roomValue;
     }
+      
+    // If this is a new entry, roomValue will be (e.g.) 10 - 10 = 0
+    // which correctly means "no inventory change"
+    
+    payload.room_number = roomValue;
 
     // ===================================================================
     // End of Solution
@@ -618,7 +609,6 @@ const Calendar = () => {
     setRoomStatus({});
     setActiveSection('price');
     setSelectedAccommodationType(null); // <-- CHANGED 3: Reset new state
-    setIsBlockAll(false);
     lastClickedDate.current = null;
   };
 
@@ -964,61 +954,41 @@ const Calendar = () => {
                         Available Rooms: {availableRooms}
                       </label>
                       
-                      {/* Block All Rooms */}
-                      <div className="mb-4">
-                        <label className="flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={isBlockAll}
-                            onChange={() => {
-                              setIsBlockAll(!isBlockAll);
-                              setSelectedRoom(0);
-                            }}
-                            className="form-checkbox h-4 w-4 text-blue-600"
-                          />
-                          <span className="ml-2 text-sm text-gray-700">Block All Rooms</span>
-                        </label>
+                      {/* Room Counter */}
+                      <div className="flex items-center">
+                        <button
+                          onClick={() => setSelectedRoom(prev => Math.max(0, (prev || 0) - 1))}
+                          disabled={selectedRoom === null || (selectedRoom || 0) <= 0}
+                          className="w-10 h-10 flex items-center justify-center rounded-md bg-green-600 text-white text-2xl font-bold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                        >
+                          −
+                        </button>
+                        
+                        {/* Room Count */}
+                        <div className="py-2 bg-white text-black-700 font-semibold text-xl min-w-[70px] h-12 flex items-center justify-center select-none">
+                          {selectedRoom}
+                        </div>
+                        
+                        {/* Plus Button */}
+                        <button
+                          onClick={() => setSelectedRoom(prev => Math.min(accommodationRooms || 0, (prev || 0) + 1))}
+                          disabled={(selectedRoom || 0) >= (accommodationRooms || 0)}
+                          className="w-10 h-10 flex items-center justify-center rounded-md bg-green-600 text-white text-2xl font-bold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+                        >
+                          +
+                        </button>
                       </div>
                       
-                      {!isBlockAll && (
-                        <>
-                          {/* Room Counter */}
-                          <div className="flex items-center">
-                            <button
-                              onClick={() => setSelectedRoom(prev => Math.max(0, (prev || 0) - 1))}
-                              disabled={selectedRoom === null || (selectedRoom || 0) <= 0}
-                              className="w-10 h-10 flex items-center justify-center rounded-md bg-green-600 text-white text-2xl font-bold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                            >
-                              −
-                            </button>
-                            
-                            {/* Room Count */}
-                            <div className="py-2 bg-white text-black-700 font-semibold text-xl min-w-[70px] h-12 flex items-center justify-center select-none">
-                              {selectedRoom}
-                            </div>
-                            
-                            {/* Plus Button */}
-                            <button
-                              onClick={() => setSelectedRoom(prev => Math.min(accommodationRooms || 0, (prev || 0) + 1))}
-                              disabled={(selectedRoom || 0) >= (accommodationRooms || 0)}
-                              className="w-10 h-10 flex items-center justify-center rounded-md bg-green-600 text-white text-2xl font-bold hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
-                            >
-                              +
-                            </button>
-                          </div>
-                          
-                          {availableRooms === 0 && (
-                            <div className="mt-2 text-xs text-yellow-600">
-                              All rooms are currently blocked or booked. You can still block all rooms for this date or release existing blocks.
-                            </div>
-                          )}
-                          
-                          {availableRooms !== null && availableRooms > 0 && (
-                            <div className="mt-2 text-xs text-gray-500">
-                              {availableRooms - (selectedRoom || 0)} rooms will be available after this change
-                            </div>
-                          )}
-                        </>
+                      {availableRooms === 0 && (
+                        <div className="mt-2 text-xs text-yellow-600">
+                          All rooms are currently blocked or booked. You can release existing blocks.
+                        </div>
+                      )}
+                      
+                      {availableRooms !== null && availableRooms > 0 && (
+                        <div className="mt-2 text-xs text-gray-500">
+                          {availableRooms - (selectedRoom || 0)} rooms will be available after this change
+                        </div>
                       )}
                     </div>
                   </div>
@@ -1108,7 +1078,6 @@ const Calendar = () => {
                           setSelectedAccommodationType(accommodation ? accommodation.type.toLowerCase() : null);
                           //
                           setSelectedRoom(date.rooms || null);
-                          setIsBlockAll(date.rooms === null);
                           setShowForm(true);
                           setSelectedDay(parseISO(date.blocked_date));
                           setActiveSection('price'); // Always show price section first
